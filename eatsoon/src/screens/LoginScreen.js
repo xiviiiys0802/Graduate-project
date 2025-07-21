@@ -1,26 +1,24 @@
 import React, { useState } from 'react';
 import { View, TextInput, Button, Alert } from 'react-native';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../../firebase';
 import { useNavigation, CommonActions } from '@react-navigation/native';
 
-export default function SignUpScreen() {
+export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [isLoading, setIsLoading] = useState(false); // 중복 클릭 방지용
+  const [isLoading, setIsLoading] = useState(false);
   const navigation = useNavigation();
 
-  const handleSignUp = async () => {
-    if (isLoading) return; // 중복 클릭 방지
+  const handleLogin = async () => {
+    if (isLoading) return;
     setIsLoading(true);
-
     try {
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      Alert.alert('회원가입 성공!', '', [
+      await signInWithEmailAndPassword(auth, email, password);
+      Alert.alert('로그인 성공', '', [
         {
           text: 'OK',
           onPress: () => {
-            // 스택 초기화하면서 MainTabs로 이동
             navigation.dispatch(
               CommonActions.reset({
                 index: 0,
@@ -31,15 +29,12 @@ export default function SignUpScreen() {
         },
       ]);
     } catch (error) {
-      // 에러 코드별 처리
-      if (error.code === 'auth/email-already-in-use') {
-        Alert.alert('이미 사용 중인 이메일입니다.');
-      } else if (error.code === 'auth/invalid-email') {
-        Alert.alert('이메일 형식이 올바르지 않습니다.');
-      } else if (error.code === 'auth/weak-password') {
-        Alert.alert('비밀번호는 최소 6자리여야 합니다.');
+      if (error.code === 'auth/user-not-found') {
+        Alert.alert('존재하지 않는 사용자입니다.');
+      } else if (error.code === 'auth/wrong-password') {
+        Alert.alert('비밀번호가 틀렸습니다.');
       } else {
-        Alert.alert('회원가입 실패', error.message);
+        Alert.alert('로그인 실패', error.message);
       }
     } finally {
       setIsLoading(false);
@@ -63,7 +58,10 @@ export default function SignUpScreen() {
         secureTextEntry
         style={{ borderBottomWidth: 1, marginBottom: 12 }}
       />
-      <Button title={isLoading ? "처리 중..." : "회원가입"} onPress={handleSignUp} disabled={isLoading} />
+      <Button title={isLoading ? "처리 중..." : "로그인"} onPress={handleLogin} disabled={isLoading} />
+      <View style={{ marginTop: 20 }}>
+        <Button title="회원가입" onPress={() => navigation.navigate('SignUp')} />
+      </View>
     </View>
   );
 }
