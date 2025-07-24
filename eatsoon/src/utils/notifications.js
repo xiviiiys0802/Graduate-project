@@ -42,9 +42,9 @@ export async function registerForPushNotificationsAsync() {
 
   if (Device.isDevice) {
     const permission = await requestNotificationPermission();
-    if (!permission || permission.status !== 'granted') {
-      return null;
-    }
+    if (!permission !== 'granted') {
+      return null; // 권한이 없으면 토큰 발급하지 않음
+    } 
 
     // 푸시 토큰 발급
     token = (await Notifications.getExpoPushTokenAsync()).data;
