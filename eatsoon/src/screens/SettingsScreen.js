@@ -2,14 +2,30 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, Image, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { getAuth } from 'firebase/auth';
 import { useNavigation } from '@react-navigation/native';
+import { Button } from 'react-native';
+import { registerForPushNotificationsAsync } from '../utils/notifications';
+import * as Notifications from 'expo-notifications';
+
+// ✅ 1. 포그라운드 알림 설정 (파일 상단에 한 번만 설정)
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,       // ✅ 포그라운드에서도 알림 표시
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+  }),
+});
 
 export default function SettingsScreen() {
   const [userInfo, setUserInfo] = useState(null);
   const navigation = useNavigation();  // ← 추가
 
   useEffect(() => {
+    // ✅ 2. 알림 권한 요청 및 푸시 토큰
     registerForPushNotificationsAsync();
-    // Firebase Auth에서 사용자 정보 가져오기
+    const listener = Notifications.addNotificationReceivedListener(notification => {
+      console.log('📩 포그라운드 알림:', notification);
+    });
+    
     const auth = getAuth();
     const user = auth.currentUser;
     if (user) {
@@ -19,6 +35,7 @@ export default function SettingsScreen() {
         photo: user.photoURL,
       });
     }
+    return () => listener.remove();
   }, []);
 
   return (
