@@ -5,22 +5,34 @@ import { Platform, Alert } from 'react-native';
 import { getAuth } from 'firebase/auth';
 import { getFirestore, doc, setDoc } from 'firebase/firestore';
 import { auth } from '../../firebase'; // Firebase 초기화 파일
+import { Linking } from 'react-native';
+
 
 const db = getFirestore(); // Firestore 인스턴스
 
 // ✅ 알림 권한 요청만 따로 분리한 함수
 export async function requestNotificationPermission() {
-  let finalStatus = await Notifications.getPermissionsAsync();
-  if (finalStatus.status !== 'granted') {
-    const { status } = await Notifications.requestPermissionsAsync();
-    finalStatus = status;
+  const settings = await Notifications.getPermissionsAsync();
+  let finalStatus = settings.status;
+
+  if (finalStatus !== 'granted') {
+    const { status: requestedStatus } = await Notifications.requestPermissionsAsync();
+    finalStatus = requestedStatus;
   }
 
   if (finalStatus !== 'granted') {
-    Alert.alert('알림 권한이 필요합니다.');
+    Alert.alert(
+      '알림 권한이 꺼져 있어요',
+      '알림을 받으려면 설정에서 권한을 켜주세요.',
+      [
+        { text: '취소', style: 'cancel' },
+        { text: '설정으로 이동', onPress: () => Linking.openSettings() },
+      ]
+    );
     return null;
   }
 
+  console.log('✅ 알림 권한이 허용됨');
   return finalStatus;
 }
 
