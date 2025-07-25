@@ -5,7 +5,7 @@ import { View, TextInput, Button, Alert } from 'react-native';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../../firebase';
 import { useNavigation, CommonActions } from '@react-navigation/native';
-import { registerForPushNotificationsAsync } from '../utils/notification';
+import { registerForPushNotificationsAsync } from '../utils/notifications';
 import Constants from 'expo-constants';
 
 export default function LoginScreen() {

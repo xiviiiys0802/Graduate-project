@@ -1,24 +1,45 @@
 // App.js
-
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
-import TabNavigation from './src/navigations/TabNavigation';
-import Constants from 'expo-constants';
-import { registerForPushNotificationsAsync } from './src/utils/notification';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { onAuthStateChanged } from 'firebase/auth';
+import { auth } from './firebase';
+
+import SignUpScreen from './src/screens/SignUpScreen';
+import LoginScreen from './src/screens/LoginScreen';
+import MainTabs from './src/navigations/MainTabs';
+import NotificationSettingsScreen from './src/screens/NotificationSettingsScreen';
+
+const Stack = createNativeStackNavigator();
 
 export default function App() {
+  const [isLoggedIn, setIsLoggedIn] = useState(null); // 초기에는 null
+
   useEffect(() => {
-    // dev client에서만 알림 등록 시도
-    if (Constants.appOwnership !== 'expo') {
-      registerForPushNotificationsAsync();
-    } else {
-      console.log('🔕 Expo Go 환경에서는 알림 등록을 생략합니다.');
-    }
+    const unsubscribe = onAuthStateChanged(auth, user => {
+      setIsLoggedIn(!!user);
+    });
+    return unsubscribe;
   }, []);
+
+  if (isLoggedIn === null) return null; // 로딩 중일 때 아무 것도 렌더링하지 않음
 
   return (
     <NavigationContainer>
-      <TabNavigation />
+      <Stack.Navigator initialRouteName={isLoggedIn ? 'MainTabs' : 'Login'}>
+        {!isLoggedIn && (
+          <>
+            <Stack.Screen name="Login" component={LoginScreen} />
+            <Stack.Screen name="SignUp" component={SignUpScreen} />
+          </>
+        )}
+        <Stack.Screen name="MainTabs" component={MainTabs} />
+        <Stack.Screen
+          name="NotificationSettings"
+          component={NotificationSettingsScreen}
+          options={{ title: '알림 설정' }}
+        />
+      </Stack.Navigator>
     </NavigationContainer>
   );
 }
