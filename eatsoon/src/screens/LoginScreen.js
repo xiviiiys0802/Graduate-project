@@ -1,8 +1,12 @@
+// src/screens/LoginScreen.js
+
 import React, { useState } from 'react';
 import { View, TextInput, Button, Alert } from 'react-native';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../../firebase';
 import { useNavigation, CommonActions } from '@react-navigation/native';
+import { registerForPushNotificationsAsync } from '../utils/notification';
+import Constants from 'expo-constants';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
@@ -13,8 +17,17 @@ export default function LoginScreen() {
   const handleLogin = async () => {
     if (isLoading) return;
     setIsLoading(true);
+
     try {
       await signInWithEmailAndPassword(auth, email, password);
+
+      // ✅ dev-client 환경에서만 푸시 토큰 등록
+      if (Constants.appOwnership !== 'expo') {
+        await registerForPushNotificationsAsync();
+      } else {
+        console.log('🔕 Expo Go 환경에서는 푸시 토큰을 저장하지 않습니다.');
+      }
+
       Alert.alert('로그인 성공', '', [
         {
           text: 'OK',
