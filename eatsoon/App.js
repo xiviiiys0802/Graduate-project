@@ -1,5 +1,8 @@
-import React from 'react';
+// App.js
+
+import React, { useEffect } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
+<<<<<<< Updated upstream
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import SignUpScreen from './src/screens/SignUpScreen';
@@ -8,8 +11,22 @@ import MainTabs from './src/navigations/MainTabs';
 import NotificationSettingsScreen from './src/screens/NotificationSettingsScreen'; // 경로 수정
 
 const Stack = createNativeStackNavigator();
+=======
+import TabNavigation from './src/navigations/TabNavigation';
+import Constants from 'expo-constants';
+import { registerForPushNotificationsAsync } from './src/utils/notification';
+>>>>>>> Stashed changes
 
 export default function App() {
+  useEffect(() => {
+    // dev client에서만 알림 등록 시도
+    if (Constants.appOwnership !== 'expo') {
+      registerForPushNotificationsAsync();
+    } else {
+      console.log('🔕 Expo Go 환경에서는 알림 등록을 생략합니다.');
+    }
+  }, []);
+
   return (
     <NavigationContainer>
       <Stack.Navigator initialRouteName="Login">
