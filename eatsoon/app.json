@@ -30,11 +30,11 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
+    "owner": "bomiy",
     "extra": {
       "eas": {
-        "projectId": "3636ec72-9fec-4137-9bb0-a5a6a9bbfe38"
+        "projectId": "90a362ed-4005-409a-8b37-5fddd38a4c6e"
       }
-    },
-    "owner": "amsrj"
+    }
   }
 }
