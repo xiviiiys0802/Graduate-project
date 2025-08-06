@@ -24,7 +24,7 @@ export default function SignUpScreen() {
             navigation.dispatch(
               CommonActions.reset({
                 index: 0,
-                routes: [{ name: 'MainTabs' }],
+                routes: [{ name: 'Main' }],
               })
             );
           },
