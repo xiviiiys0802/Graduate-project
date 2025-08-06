@@ -2,14 +2,12 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, Image, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { getAuth } from 'firebase/auth';
 import { useNavigation } from '@react-navigation/native';
-import { Button } from 'react-native';
 import { registerForPushNotificationsAsync } from '../utils/notifications';
 import * as Notifications from 'expo-notifications';
 
-// ✅ 1. 포그라운드 알림 설정 (파일 상단에 한 번만 설정)
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
-    shouldShowAlert: true,       // ✅ 포그라운드에서도 알림 표시
+    shouldShowAlert: true,
     shouldPlaySound: true,
     shouldSetBadge: false,
   }),
@@ -17,15 +15,14 @@ Notifications.setNotificationHandler({
 
 export default function SettingsScreen() {
   const [userInfo, setUserInfo] = useState(null);
-  const navigation = useNavigation();  // ← 추가
+  const navigation = useNavigation();
 
   useEffect(() => {
-    // ✅ 2. 알림 권한 요청 및 푸시 토큰
     registerForPushNotificationsAsync();
     const listener = Notifications.addNotificationReceivedListener(notification => {
       console.log('📩 포그라운드 알림:', notification);
     });
-    
+
     const auth = getAuth();
     const user = auth.currentUser;
     if (user) {
@@ -54,25 +51,28 @@ export default function SettingsScreen() {
         </View>
       </TouchableOpacity>
 
-      {/* 섹션 구분 */}
+      {/* 새로운 기능 섹션 */}
+      <Text style={styles.sectionTitle}>기능</Text>
+
+      <TouchableOpacity style={styles.recipeBox} onPress={() => navigation.navigate('RecipeRecommendation')}>
+        <Text style={styles.recipeText}>레시피 추천</Text>
+      </TouchableOpacity>
+
+      <View style={styles.bottomRow}>
+        <TouchableOpacity style={styles.leftBox} onPress={() => navigation.navigate('StatisticsReport')}>
+          <Text>통계/리포트</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.rightBox} onPress={() => navigation.navigate('ShoppingList')}>
+          <Text>장보기 리스트</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* 기존 시스템 설정 */}
       <Text style={styles.sectionTitle}>시스템 설정</Text>
 
-      {/* 알림 설정 화면으로 이동 */}
       <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('NotificationSettings')}>
         <Text>알림</Text>
       </TouchableOpacity>
-      <Button
-        title="알림 테스트"
-        onPress={async () => {
-          await Notifications.scheduleNotificationAsync({
-            content: {
-              title: 'EatSoon 알림',
-              body: '테스트 알림이 도착했습니다!',
-            },
-            trigger: { seconds: 2 },
-          });
-        }}
-      />
 
       <TouchableOpacity style={styles.menuItem}>
         <Text>앱 사용 분석 (준비 중)</Text>
@@ -86,7 +86,6 @@ export default function SettingsScreen() {
     </ScrollView>
   );
 }
-
 
 const styles = StyleSheet.create({
   container: {
@@ -138,5 +137,40 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderBottomColor: '#eee',
     borderBottomWidth: 1,
+  },
+  recipeBox: {
+    height: 150,
+    marginHorizontal: 16,
+    marginBottom: 10,
+    borderRadius: 12,
+    backgroundColor: '#ffe0e0',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  recipeText: {
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  bottomRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginHorizontal: 16,
+    marginBottom: 10,
+  },
+  leftBox: {
+    flex: 1,
+    height: 100,
+    borderRadius: 12,
+    backgroundColor: '#d0f0ff',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  rightBox: {
+    flex: 1,
+    height: 100,
+    borderRadius: 12,
+    backgroundColor: '#d0ffd0',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
