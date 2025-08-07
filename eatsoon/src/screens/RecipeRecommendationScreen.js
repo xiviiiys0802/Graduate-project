@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, Button } from 'react-native';
-import { db } from '../firebase';
+import { db } from '../config/firebase';
 import { collection, addDoc } from 'firebase/firestore';
 
 const RecipeRecommendationScreen = () => {

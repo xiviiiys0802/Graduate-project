@@ -1,49 +1,54 @@
-// App.js
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { onAuthStateChanged } from 'firebase/auth';
-import { auth } from './firebase';
-
-import SignUpScreen from './src/screens/SignUpScreen';
+import { createStackNavigator } from '@react-navigation/stack';
+import { AuthProvider, useAuth } from './src/contexts/AuthContext';
 import LoginScreen from './src/screens/LoginScreen';
-import TabNavigation from './src/navigations/TabNavigation'; 
-import NotificationSettingsScreen from './src/screens/NotificationSettingsScreen';
+import TabNavigation from './src/navigations/TabNavigation';
+import AddFoodScreen from './src/screens/AddFoodScreen';
+import { ActivityIndicator, View } from 'react-native';
 
-const Stack = createNativeStackNavigator();
+const Stack = createStackNavigator();
 
-export default function App() {
-  const [isLoggedIn, setIsLoggedIn] = useState(null); // 초기에는 null
+const AppNavigator = () => {
+  const { user, loading } = useAuth();
 
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, user => {
-      setIsLoggedIn(!!user);
-    });
-    return unsubscribe;
-  }, []);
-
-  if (isLoggedIn === null) return null; // 로딩 중일 때 아무 것도 렌더링하지 않음
+  if (loading) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color="#4f62c0" />
+      </View>
+    );
+  }
 
   return (
-    <NavigationContainer>
-      <Stack.Navigator initialRouteName={isLoggedIn ? 'Main' : 'Login'}>
-        {!isLoggedIn && (
+     <NavigationContainer>
+      <Stack.Navigator screenOptions={{ headerShown: false }}>
+        {user ? (
           <>
-            <Stack.Screen name="Login" component={LoginScreen} />
-            <Stack.Screen name="SignUp" component={SignUpScreen} />
+            <Stack.Screen name="Main" component={TabNavigation} />
+            {/* AddFood 화면 추가 ✅ */}
+            <Stack.Screen 
+              name="AddFood" 
+              component={AddFoodScreen}
+              options={{ 
+                headerShown: true,  // 헤더 표시
+                title: '재고 추가하기',
+                headerBackTitle: '뒤로'
+              }}
+            />
           </>
+        ) : (
+          <Stack.Screen name="Login" component={LoginScreen} />
         )}
-        <Stack.Screen
-          name="Main"
-          component={TabNavigation} 
-          options={{ headerShown: false }}
-        />
-        <Stack.Screen
-          name="NotificationSettings"
-          component={NotificationSettingsScreen}
-          options={{ title: '알림 설정' }}
-        />
       </Stack.Navigator>
     </NavigationContainer>
+  );
+};
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <AppNavigator />
+    </AuthProvider>
   );
 }
