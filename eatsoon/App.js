@@ -6,6 +6,7 @@ import LoginScreen from './src/screens/LoginScreen';
 import TabNavigation from './src/navigations/TabNavigation';
 import AddFoodScreen from './src/screens/AddFoodScreen';
 import { ActivityIndicator, View } from 'react-native';
+import NotificationSettingsScreen from './src/screens/NotificationSettingsScreen';
 
 const Stack = createStackNavigator();
 
@@ -36,6 +37,11 @@ const AppNavigator = () => {
                 headerBackTitle: '뒤로'
               }}
             />
+            <Stack.Screen
+          name="NotificationSettings"
+          component={NotificationSettingsScreen}
+          options={{ title: '알림 설정' }}
+        />
           </>
         ) : (
           <Stack.Screen name="Login" component={LoginScreen} />
