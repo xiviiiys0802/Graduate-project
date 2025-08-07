@@ -4,7 +4,7 @@ import * as Device from 'expo-device';
 import { Platform, Alert } from 'react-native';
 import { getAuth } from 'firebase/auth';
 import { getFirestore, doc, setDoc } from 'firebase/firestore';
-import { auth } from '../../firebase'; // Firebase 초기화 파일
+import { auth } from '../config/firebase'; // Firebase 초기화 파일
 import { Linking } from 'react-native';
 
 
