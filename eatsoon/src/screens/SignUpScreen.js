@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, TextInput, Button, Alert } from 'react-native';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '../../firebase';
+import { auth } from '../config/firebase';
 import { useNavigation, CommonActions } from '@react-navigation/native';
 
 export default function SignUpScreen() {
