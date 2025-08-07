@@ -13,9 +13,10 @@ import {
   Platform,
 } from 'react-native';
 import { getAuth, signOut, updateProfile } from 'firebase/auth';
-import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import * as ImagePicker from 'expo-image-picker';
 import { useNavigation } from '@react-navigation/native';
+import { storage } from '../config/firebase';
 
 export default function ProfileScreen() {
   const [userInfo, setUserInfo] = useState(null);
@@ -65,32 +66,45 @@ export default function ProfileScreen() {
   };
 
   const uploadImageToFirebase = async (uri) => {
-    const auth = getAuth();
-    const user = auth.currentUser;
-    if (!user) return;
-
     try {
       setUploading(true);
+
+      const auth = getAuth();
+      const user = auth.currentUser;
+
+      if (!user) {
+        Alert.alert('오류', '사용자 정보를 불러올 수 없습니다.');
+        return;
+      }
+
+      console.log('[DEBUG] uri:', uri);
       const response = await fetch(uri);
+      console.log('[DEBUG] fetch status:', response.status);
       const blob = await response.blob();
-      const storage = getStorage();
-      const filename = `profilePhotos/${user.uid}.jpg`;
-      const imageRef = ref(storage, filename);
+      console.log('[DEBUG] blob created:', blob);
+
+      const imageRef = ref(storage, `profilePhotos/${user.uid}.jpg`);
+      console.log('[DEBUG] imageRef:', imageRef.fullPath);
 
       await uploadBytes(imageRef, blob);
+      console.log('[DEBUG] upload success');
+
       const downloadURL = await getDownloadURL(imageRef);
+      console.log('[DEBUG] downloadURL:', downloadURL);
 
       await updateProfile(user, { photoURL: downloadURL });
-      setUserInfo({ ...userInfo, photo: downloadURL });
 
+      setUserInfo({ ...userInfo, photo: downloadURL });
       Alert.alert('성공', '프로필 사진이 업데이트되었습니다.');
     } catch (error) {
-      console.error('업로드 오류:', error);
+      console.error('[ERROR] 업로드 오류:', error);
       Alert.alert('오류', '사진 업로드에 실패했습니다.');
     } finally {
       setUploading(false);
     }
   };
+
+
 
   return (
     <ScrollView style={styles.container}>

@@ -3,15 +3,16 @@ import { initializeAuth, getReactNativePersistence } from 'firebase/auth';
 import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
+import { getStorage } from "firebase/storage";
 
+// ✅ 수정된 storageBucket
 const firebaseConfig = {
-  apiKey: "AIzaSyB-ApuhEYLl6anQtbCReL-N2D6L7xeT1fQ",
-  authDomain: "eatsoon-16f59.firebaseapp.com",
-  projectId: "eatsoon-16f59",
-  storageBucket: "eatsoon-16f59.firebasestorage.app",
-  messagingSenderId: "486393424980",
-  appId: "1:486393424980:web:c032a099834c70b78a51c1",
-  measurementId: "G-W27HCVN19P"
+  apiKey: "AIzaSyAsrjfiD4dxy0IMonFm_hfKsU2XYk1UDvE",
+  authDomain: "test-c266f.firebaseapp.com",
+  projectId: "test-c266f",
+  storageBucket: "test-c266f.firebasestorage.app",
+  messagingSenderId: "408620908267",
+  appId: "1:408620908267:web:86c27c1f2bc445e3a548ae"
 };
 
 // Firebase 앱 초기화
@@ -22,8 +23,12 @@ const auth = initializeAuth(app, {
   persistence: getReactNativePersistence(AsyncStorage)
 });
 
-// Firestore 초기화
+// Firestore
 const db = getFirestore(app);
 
-export { auth, db };
+// ✅ Storage 추가
+const storage = getStorage(app);
+
+// 모듈 export
+export { auth, db, storage };
 export default app;
