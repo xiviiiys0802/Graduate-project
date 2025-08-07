@@ -1,8 +1,8 @@
-// src/screens/ProfileScreen.js
 import React, { useEffect, useState } from 'react';
 import { View, Text, Image, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
-import { getAuth } from 'firebase/auth';
+import { getAuth, signOut } from 'firebase/auth';
 import { useNavigation } from '@react-navigation/native';
+import { ToastAndroid, Alert, Platform } from 'react-native';
 
 export default function ProfileScreen() {
   const [userInfo, setUserInfo] = useState(null);
@@ -19,6 +19,24 @@ export default function ProfileScreen() {
       });
     }
   }, []);
+
+  const handleLogout = async () => {
+    try {
+      const auth = getAuth();
+      await signOut(auth);
+      // 🔥 이 부분에서 replace('Login') 필요 없음!
+      // user가 null로 바뀌면 AppNavigator에서 자동으로 Login 화면으로 전환됨
+    // ✅ 로그아웃 알림
+      if (Platform.OS === 'android') {
+        ToastAndroid.show('로그아웃 되었습니다', ToastAndroid.SHORT);
+      } else {
+        Alert.alert('로그아웃', '로그아웃 되었습니다');
+      }
+    } catch (error) {
+      console.error('로그아웃 실패:', error);
+    }
+  };
+
 
   return (
     <ScrollView style={styles.container}>
@@ -47,7 +65,7 @@ export default function ProfileScreen() {
 
       {/* 기타 */}
       <Text style={styles.sectionTitle}>기타</Text>
-      <TouchableOpacity style={styles.menuItem}>
+      <TouchableOpacity style={styles.menuItem} onPress={handleLogout}>
         <Text>로그아웃</Text>
       </TouchableOpacity>
     </ScrollView>
