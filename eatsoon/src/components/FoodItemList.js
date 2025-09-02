@@ -7,7 +7,8 @@ import {
 } from '../utils/firebaseStorage';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigation } from '@react-navigation/native';
-
+import { Dimensions } from 'react-native';
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 const FoodItemList = ({ onItemDeleted, refreshTrigger }) => {
   const [items, setItems] = useState([]);
@@ -76,7 +77,8 @@ const FoodItemList = ({ onItemDeleted, refreshTrigger }) => {
 
   // 헤더 컴포넌트 추가
   const renderHeader = () => (
-    <View style={{ padding: 15, paddingBottom: 0 }}>
+    <View style={{ padding: 15, paddingBottom: 0, alignItems: 'center'
+     }}>
       <Title>음식 재고 목록</Title>
       <View style={{ marginVertical: 15 }}>
         <Button
@@ -93,6 +95,8 @@ const FoodItemList = ({ onItemDeleted, refreshTrigger }) => {
     
     return (
       <View style={{
+        width: SCREEN_WIDTH - 40,
+        alignSelf: 'center',
         backgroundColor: isExpiringSoon ? '#ffebee' : '#fff',
         padding: 15,
         marginBottom: 10,
@@ -146,7 +150,7 @@ const FoodItemList = ({ onItemDeleted, refreshTrigger }) => {
         // VirtualizedList 기본 제공하는 당겨서 새로고침 props 사용
         refreshing={refreshing}
         onRefresh={handleRefresh}
-        contentContainerStyle={{ flexGrow: 1 }}
+        contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 0 }}
         showsVerticalScrollIndicator={false}
       />
       {loading && (
