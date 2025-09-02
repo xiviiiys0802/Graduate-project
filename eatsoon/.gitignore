@@ -33,6 +33,11 @@ yarn-error.*
 # local env files
 .env*.local
 
+# API 키 파일 (보안상 중요!)
+.env
+src/config/apiKeys.js
+src/config/serviceAccountKey.json
+
 # typescript
 *.tsbuildinfo
 node_modules

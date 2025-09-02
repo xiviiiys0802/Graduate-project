@@ -1,6 +1,7 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons'; // 이거 꼭 import 되어 있어야 함!
+import { Colors } from '../utils/colors';
 
 import HomeScreen from '../screens/HomeScreen';
 import ProfileScreen from '../screens/ProfileScreen';
@@ -10,7 +11,24 @@ const Tab = createBottomTabNavigator();
 
 export default function TabNavigation() {
   return (
-    <Tab.Navigator>
+    <Tab.Navigator
+      screenOptions={{
+        tabBarActiveTintColor: Colors.primary,
+        tabBarInactiveTintColor: Colors.textSecondary,
+        tabBarStyle: {
+          backgroundColor: Colors.surface,
+          borderTopColor: Colors.border,
+          borderTopWidth: 1,
+        },
+        headerStyle: {
+          backgroundColor: Colors.surface,
+        },
+        headerTintColor: Colors.textPrimary,
+        headerTitleStyle: {
+          fontWeight: '600',
+        },
+      }}
+    >
       <Tab.Screen
         name="Home"
         component={HomeScreen}
@@ -39,9 +57,20 @@ export default function TabNavigation() {
           tabBarLabel: '더보기',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="ellipsis-horizontal" size={size} color={color} />
-    ),
-  }}
-/>
+          ),
+        }}
+        listeners={({ navigation }) => ({
+          tabPress: (e) => {
+            // 기본 동작 방지
+            e.preventDefault();
+            // 스택을 리셋하고 More 화면으로 이동
+            navigation.reset({
+              index: 0,
+              routes: [{ name: 'Settings', params: { screen: 'More' } }],
+            });
+          },
+        })}
+      />
     </Tab.Navigator>
   );
 }
