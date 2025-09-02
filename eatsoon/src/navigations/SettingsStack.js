@@ -4,6 +4,7 @@ import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import MoreScreen from '../screens/MoreScreen';
 import RecipeRecommendationScreen from '../screens/RecipeRecommendationScreen';
+import RecipeDetailScreen from '../screens/RecipeDetailScreen';
 import StatisticsReportScreen from '../screens/StatisticsReportScreen';
 import ShoppingListScreen from '../screens/ShoppingListScreen';
 import NotificationHistoryScreen from '../screens/NotificationHistoryScreen';
@@ -21,6 +22,7 @@ export default function SettingsStack() {
     <Stack.Navigator initialRouteName="More">
       <Stack.Screen name="More" component={MoreScreen} />
       <Stack.Screen name="RecipeRecommendation" component={RecipeRecommendationScreen} />
+      <Stack.Screen name="RecipeDetail" component={RecipeDetailScreen} />
       <Stack.Screen name="StatisticsReport" component={StatisticsReportScreen} />
       <Stack.Screen name="ShoppingList" component={ShoppingListScreen} />
       <Stack.Screen 
