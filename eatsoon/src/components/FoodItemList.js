@@ -7,18 +7,25 @@ import {
 } from '../utils/firebaseStorage';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigation } from '@react-navigation/native';
-
+import { Dimensions } from 'react-native';
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 const FoodItemList = ({ onItemDeleted, refreshTrigger }) => {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [isSortedByExpiry, setIsSortedByExpiry] = useState(false);
   const navigation = useNavigation();
 
   const { user } = useAuth();
 
     const handleAddPress = () => {
         navigation.navigate('AddFood'); // Stack의 AddFoodScreen으로 이동
+    };
+
+    // 유통기한 임박순 정렬 함수
+    const sortByExpiry = (list) => {
+      return [...list].sort((a, b) => new Date(a.expirationDate) - new Date(b.expirationDate));
     };
 
 
@@ -31,7 +38,8 @@ const FoodItemList = ({ onItemDeleted, refreshTrigger }) => {
 
     try {
       const foodItems = await loadFoodItemsFromFirestore();
-      setItems(foodItems);
+      const sorted = isSortedByExpiry ? sortByExpiry(foodItems) : foodItems;
+      setItems(sorted);
     } catch (error) {
       console.error('음식 목록 불러오기 실패:', error);
       Alert.alert('오류', '음식 목록을 불러오는데 실패했습니다.');
@@ -43,11 +51,16 @@ const FoodItemList = ({ onItemDeleted, refreshTrigger }) => {
 
   useEffect(() => {
     loadItems();
-  }, [user, refreshTrigger]);
+  }, [user, refreshTrigger, isSortedByExpiry]);
 
   const handleRefresh = () => {
     setRefreshing(true);
     loadItems();
+  };
+
+  // “임박순 정렬” 토글 버튼 핸들러
+  const handleToggleSort = () => {
+    setIsSortedByExpiry(prev => !prev);
   };
 
   const handleDelete = async (itemId) => {
@@ -74,15 +87,22 @@ const FoodItemList = ({ onItemDeleted, refreshTrigger }) => {
     );
   };
 
-  // 헤더 컴포넌트 추가
+  // 헤더 컴포넌트에 '임박순 정렬' 버튼 추가
   const renderHeader = () => (
-    <View style={{ padding: 15, paddingBottom: 0 }}>
-      <Title>음식 재고 목록</Title>
-      <View style={{ marginVertical: 15 }}>
+    <View style={{ padding: 15, paddingBottom: 0, alignItems: 'center' }}>
+      <Title style={{ textAlign: 'center' }}>음식 재고 목록</Title>
+      <View style={{ flexDirection: 'row', marginVertical: 15 }}>
+        <View style={{ marginRight: 10 }}>
         <Button
           title="➕ 재고 추가하기"
           color="#4f62c0"
           onPress={handleAddPress}
+        />
+      </View>
+      <Button
+          title={isSortedByExpiry ? "등록순" : "임박순 정렬"}
+          color="#4f62c0"
+          onPress={handleToggleSort}
         />
       </View>
     </View>
@@ -93,6 +113,8 @@ const FoodItemList = ({ onItemDeleted, refreshTrigger }) => {
     
     return (
       <View style={{
+        width: SCREEN_WIDTH - 40,
+        alignSelf: 'center',
         backgroundColor: isExpiringSoon ? '#ffebee' : '#fff',
         padding: 15,
         marginBottom: 10,
@@ -146,7 +168,7 @@ const FoodItemList = ({ onItemDeleted, refreshTrigger }) => {
         // VirtualizedList 기본 제공하는 당겨서 새로고침 props 사용
         refreshing={refreshing}
         onRefresh={handleRefresh}
-        contentContainerStyle={{ flexGrow: 1 }}
+        contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 0 }}
         showsVerticalScrollIndicator={false}
       />
       {loading && (
