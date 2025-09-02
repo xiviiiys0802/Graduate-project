@@ -6,6 +6,7 @@ import {
 } from 'react-native';
 import { useAuth } from '../contexts/AuthContext';
 import CheckBox from '@react-native-community/checkbox';
+import { Colors, Theme } from '../utils/colors';
 
 const LoginScreen = () => {
   const [email, setEmail] = useState('');
@@ -145,51 +146,113 @@ const LoginScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f8f9fa' },
-  scrollContainer: { flexGrow: 1, justifyContent: 'center', padding: 20 },
-  formContainer: { backgroundColor: '#fff', borderRadius: 12, padding: 30 },
-  title: { fontSize: 32, fontWeight: 'bold', color: '#4f62c0', textAlign: 'center' },
-  subtitle: { fontSize: 16, color: '#666', textAlign: 'center', marginBottom: 30 },
-  formTitle: { fontSize: 24, fontWeight: 'bold', textAlign: 'center', marginBottom: 30 },
-  inputContainer: { marginBottom: 20 },
-  label: { fontSize: 16, marginBottom: 8 },
-  input: { borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 12, backgroundColor: '#f9f9f9' },
-  // styles에 아래 추가
+  container: { 
+    flex: 1, 
+    backgroundColor: Colors.background 
+  },
+  scrollContainer: { 
+    flexGrow: 1, 
+    justifyContent: 'center', 
+    padding: Theme.spacing.lg 
+  },
+  formContainer: { 
+    backgroundColor: Colors.surface, 
+    borderRadius: Theme.borderRadius.lg, 
+    padding: Theme.spacing.xl,
+    ...Theme.shadows.medium
+  },
+  title: { 
+    fontSize: Theme.typography.h1.fontSize, 
+    fontWeight: Theme.typography.h1.fontWeight, 
+    color: Colors.primary, 
+    textAlign: 'center' 
+  },
+  subtitle: { 
+    fontSize: Theme.typography.body.fontSize, 
+    color: Colors.textSecondary, 
+    textAlign: 'center', 
+    marginBottom: Theme.spacing.xl 
+  },
+  formTitle: { 
+    fontSize: Theme.typography.h2.fontSize, 
+    fontWeight: Theme.typography.h2.fontWeight, 
+    textAlign: 'center', 
+    marginBottom: Theme.spacing.xl,
+    color: Colors.textPrimary
+  },
+  inputContainer: { 
+    marginBottom: Theme.spacing.lg 
+  },
+  label: { 
+    fontSize: Theme.typography.body.fontSize, 
+    marginBottom: Theme.spacing.sm,
+    color: Colors.textPrimary,
+    fontWeight: '500'
+  },
+  input: { 
+    borderWidth: 1, 
+    borderColor: Colors.border, 
+    borderRadius: Theme.borderRadius.md, 
+    padding: Theme.spacing.md, 
+    backgroundColor: Colors.surface,
+    fontSize: Theme.typography.body.fontSize,
+    color: Colors.textPrimary
+  },
   checkboxRow: {
-  flexDirection: 'row',
-  alignItems: 'center',
-  marginBottom: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: Theme.spacing.lg,
   },
   checkbox: {
     width: 20,
     height: 20,
     borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 4,
+    borderColor: Colors.border,
+    borderRadius: Theme.borderRadius.sm,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: Colors.surface,
   },
   checkboxChecked: {
-    borderColor: '#4f62c0',
+    borderColor: Colors.primary,
+    backgroundColor: Colors.primary,
   },
   checkmark: {
-    fontSize: 14,
-    color: '#4f62c0',
+    fontSize: Theme.typography.small.fontSize,
+    color: Colors.textInverse,
     fontWeight: 'bold',
   },
   checkboxLabel: {
-    marginLeft: 8,
-    fontSize: 16,
-    color: '#333',
+    marginLeft: Theme.spacing.sm,
+    fontSize: Theme.typography.body.fontSize,
+    color: Colors.textPrimary,
   },
-
-
-  submitButton: { backgroundColor: '#4f62c0', borderRadius: 8, padding: 15, alignItems: 'center' },
-  disabledButton: { backgroundColor: '#aaa' },
-  submitButtonText: { color: '#fff', fontSize: 18 },
-  toggleText: { textAlign: 'center', marginTop: 20, fontSize: 16, color: '#666' },
-  toggleLink: { color: '#4f62c0', fontWeight: 'bold', textDecorationLine: 'underline' },
+  submitButton: { 
+    backgroundColor: Colors.primary, 
+    borderRadius: Theme.borderRadius.md, 
+    padding: Theme.spacing.md, 
+    alignItems: 'center',
+    ...Theme.shadows.small
+  },
+  disabledButton: { 
+    backgroundColor: Colors.textDisabled 
+  },
+  submitButtonText: { 
+    color: Colors.textInverse, 
+    fontSize: Theme.typography.body.fontSize,
+    fontWeight: '600'
+  },
+  toggleText: { 
+    textAlign: 'center', 
+    marginTop: Theme.spacing.lg, 
+    fontSize: Theme.typography.body.fontSize, 
+    color: Colors.textSecondary 
+  },
+  toggleLink: { 
+    color: Colors.primary, 
+    fontWeight: 'bold', 
+    textDecorationLine: 'underline' 
+  },
 });
 
 export default LoginScreen;
