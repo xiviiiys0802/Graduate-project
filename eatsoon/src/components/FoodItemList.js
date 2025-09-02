@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { FlatList, View, Text, Button, Alert } from 'react-native';
-import { Container, Title } from './StyledComponents';
+import { FlatList, View, Text, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
+import { Container, Title, Card, Button, ButtonText, EmptyContainer, EmptyText, LoadingContainer } from './StyledComponents';
 import { 
   loadFoodItemsFromFirestore, 
   deleteFoodItemFromFirestore 
@@ -8,6 +8,11 @@ import {
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigation } from '@react-navigation/native';
 import { Dimensions } from 'react-native';
+import { cancelFoodNotifications } from '../utils/notifications';
+import { Colors, Theme } from '../utils/colors';
+import { Ionicons } from '@expo/vector-icons';
+import StatisticsService from '../services/statisticsService';
+
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 const FoodItemList = ({ onItemDeleted, refreshTrigger }) => {
@@ -19,15 +24,27 @@ const FoodItemList = ({ onItemDeleted, refreshTrigger }) => {
 
   const { user } = useAuth();
 
-    const handleAddPress = () => {
-        navigation.navigate('AddFood'); // Stack의 AddFoodScreen으로 이동
+  const getCategoryKey = (category) => {
+    const categoryMap = {
+      '유제품': 'dairy',
+      '육류': 'meat',
+      '채소': 'vegetables',
+      '과일': 'fruits',
+      '곡물': 'grains',
+      '음료': 'beverages',
+      '간식': 'snacks',
     };
+    return categoryMap[category] || 'others';
+  };
 
-    // 유통기한 임박순 정렬 함수
-    const sortByExpiry = (list) => {
-      return [...list].sort((a, b) => new Date(a.expirationDate) - new Date(b.expirationDate));
-    };
+  const handleAddPress = () => {
+    navigation.navigate('AddFood');
+  };
 
+  // 유통기한 임박순 정렬 함수
+  const sortByExpiry = (list) => {
+    return [...list].sort((a, b) => new Date(a.expirationDate) - new Date(b.expirationDate));
+  };
 
   const loadItems = async () => {
     if (!user) {
@@ -58,7 +75,6 @@ const FoodItemList = ({ onItemDeleted, refreshTrigger }) => {
     loadItems();
   };
 
-  // “임박순 정렬” 토글 버튼 핸들러
   const handleToggleSort = () => {
     setIsSortedByExpiry(prev => !prev);
   };
@@ -71,10 +87,29 @@ const FoodItemList = ({ onItemDeleted, refreshTrigger }) => {
         { text: '취소', style: 'cancel' },
         {
           text: '삭제',
+          style: 'destructive',
           onPress: async () => {
             try {
               await deleteFoodItemFromFirestore(itemId);
-              await loadItems(); // 목록 새로고침
+              
+              // 통계 업데이트
+              try {
+                const itemToDelete = items.find(item => item.id === itemId);
+                const categoryKey = getCategoryKey(itemToDelete?.category || 'others');
+                await StatisticsService.removeFoodItem(categoryKey);
+              } catch (statError) {
+                console.error('통계 업데이트 실패:', statError);
+              }
+              
+              // 관련 알림 취소
+              try {
+                await cancelFoodNotifications(itemId);
+                console.log('음식 삭제 시 관련 알림이 취소되었습니다.');
+              } catch (notificationError) {
+                console.error('알림 취소 실패:', notificationError);
+              }
+              
+              await loadItems();
               if (onItemDeleted) {
                 onItemDeleted();
               }
@@ -87,66 +122,139 @@ const FoodItemList = ({ onItemDeleted, refreshTrigger }) => {
     );
   };
 
-  // 헤더 컴포넌트에 '임박순 정렬' 버튼 추가
+  // 유통기한 상태 계산
+  const getExpiryStatus = (expirationDate) => {
+    const expiryDate = new Date(expirationDate);
+    const now = new Date();
+    const diffTime = expiryDate - now;
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays < 0) return { status: 'expired', days: diffDays, color: Colors.danger };
+    if (diffDays <= 1) return { status: 'urgent', days: diffDays, color: Colors.danger };
+    if (diffDays <= 3) return { status: 'warning', days: diffDays, color: Colors.warning };
+    return { status: 'safe', days: diffDays, color: Colors.success };
+  };
+
+  // 카테고리 아이콘 가져오기
+  const getCategoryIcon = (category) => {
+    switch (category?.toLowerCase()) {
+      case '채소': return 'leaf';
+      case '과일': return 'nutrition';
+      case '육류': return 'restaurant';
+      case '유제품': return 'water';
+      case '곡물': return 'grain';
+      default: return 'fast-food';
+    }
+  };
+
+  // 헤더 컴포넌트
   const renderHeader = () => (
-    <View style={{ padding: 15, paddingBottom: 0, alignItems: 'center' }}>
-      <Title style={{ textAlign: 'center' }}>음식 재고 목록</Title>
-      <View style={{ flexDirection: 'row', marginVertical: 15 }}>
-        <View style={{ marginRight: 10 }}>
-        <Button
-          title="➕ 재고 추가하기"
-          color="#4f62c0"
-          onPress={handleAddPress}
-        />
-      </View>
-      <Button
-          title={isSortedByExpiry ? "등록순" : "임박순 정렬"}
-          color="#4f62c0"
+    <View style={styles.header}>
+      <Title>음식 재고 목록</Title>
+      <View style={styles.headerButtons}>
+        <TouchableOpacity style={styles.addButton} onPress={handleAddPress}>
+          <Ionicons name="add" size={20} color={Colors.textInverse} />
+          <Text style={styles.addButtonText}>재고 추가</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity 
+          style={[styles.sortButton, isSortedByExpiry && styles.sortButtonActive]} 
           onPress={handleToggleSort}
-        />
+        >
+          <Ionicons 
+            name={isSortedByExpiry ? "calendar" : "list"} 
+            size={16} 
+            color={isSortedByExpiry ? Colors.textInverse : Colors.textSecondary} 
+          />
+          <Text style={[styles.sortButtonText, isSortedByExpiry && styles.sortButtonTextActive]}>
+            {isSortedByExpiry ? "임박순" : "등록순"}
+          </Text>
+        </TouchableOpacity>
       </View>
     </View>
   );
 
+  // 음식 아이템 카드
   const renderItem = ({ item }) => {
-    const isExpiringSoon = new Date(item.expirationDate) <= new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
+    const expiryStatus = getExpiryStatus(item.expirationDate);
+    const isLowStock = item.quantity <= 2;
     
     return (
-      <View style={{
-        width: SCREEN_WIDTH - 40,
-        alignSelf: 'center',
-        backgroundColor: isExpiringSoon ? '#ffebee' : '#fff',
-        padding: 15,
-        marginBottom: 10,
-        borderRadius: 5,
-        borderWidth: 1,
-        borderColor: isExpiringSoon ? '#f44336' : '#ddd',
-      }}>
-        <Text style={{ fontSize: 18, fontWeight: 'bold' }}>{item.name}</Text>
-        <Text style={{ color: '#666' }}>수량: {item.quantity}</Text>
-        {item.category && (
-          <Text style={{ color: '#666' }}>카테고리: {item.category}</Text>
-        )}
-        <Text style={{ color: isExpiringSoon ? '#f44336' : '#666' }}>
-          유통기한: {item.expirationDate}
+      <Card style={[styles.foodCard, { borderLeftColor: expiryStatus.color }]}>
+        <View style={styles.cardHeader}>
+          <View style={styles.foodInfo}>
+            <View style={styles.foodTitleRow}>
+              <Ionicons 
+                name={getCategoryIcon(item.category)} 
+                size={20} 
+                color={Colors.textSecondary} 
+                style={styles.categoryIcon}
+              />
+              <Text style={styles.foodName}>{item.name}</Text>
+              {isLowStock && (
+                <View style={styles.lowStockBadge}>
+                  <Text style={styles.lowStockText}>부족</Text>
+                </View>
+              )}
+            </View>
+            
+            <View style={styles.foodDetails}>
+              <View style={styles.detailRow}>
+                <Ionicons name="cube" size={14} color={Colors.textSecondary} />
+                <Text style={styles.detailText}>수량: {item.quantity}개</Text>
+              </View>
+              
+              {item.category && (
+                <View style={styles.detailRow}>
+                  <Ionicons name="pricetag" size={14} color={Colors.textSecondary} />
+                  <Text style={styles.detailText}>{item.category}</Text>
+                </View>
+              )}
+            </View>
+          </View>
+          
+          <TouchableOpacity 
+            style={styles.deleteButton} 
+            onPress={() => handleDelete(item.id)}
+          >
+            <Ionicons name="trash-outline" size={20} color={Colors.danger} />
+          </TouchableOpacity>
+        </View>
+        
+        <View style={styles.expirySection}>
+          <View style={styles.expiryRow}>
+            <Ionicons name="calendar" size={16} color={expiryStatus.color} />
+            <Text style={[styles.expiryText, { color: expiryStatus.color }]}>
+              유통기한: {item.expirationDate}
+            </Text>
+          </View>
+          
+          <View style={[styles.expiryBadge, { backgroundColor: expiryStatus.color }]}>
+            <Text style={styles.expiryBadgeText}>
+              {expiryStatus.status === 'expired' ? '만료' : 
+               expiryStatus.status === 'urgent' ? '오늘' : 
+               expiryStatus.status === 'warning' ? `${expiryStatus.days}일` : 
+               `${expiryStatus.days}일`}
+            </Text>
+          </View>
+        </View>
+        
+        <Text style={styles.addedDate}>
+          추가: {item.addedDate}
         </Text>
-        <Text style={{ color: '#888', fontSize: 12 }}>
-          추가날짜: {item.addedDate}
-        </Text>
-        <Button
-          title="삭제"
-          onPress={() => handleDelete(item.id)}
-          color="#f44336"
-        />
-      </View>
+      </Card>
     );
   };
 
-  // 로딩 상태나 빈 리스트 처리를 위한 컴포넌트
+  // 빈 상태 컴포넌트
   const renderEmptyComponent = () => (
-    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 50 }}>
-      <Text>등록된 음식이 없습니다.</Text>
-    </View>
+    <EmptyContainer>
+      <Ionicons name="fast-food-outline" size={64} color={Colors.textSecondary} />
+      <EmptyText>등록된 음식이 없습니다</EmptyText>
+      <Text style={styles.emptySubtext}>
+        재고를 추가하여 음식 관리를 시작해보세요!
+      </Text>
+    </EmptyContainer>
   );
 
   if (!user) {
@@ -157,27 +265,181 @@ const FoodItemList = ({ onItemDeleted, refreshTrigger }) => {
     );
   }
 
+  if (loading) {
+    return (
+      <LoadingContainer>
+        <ActivityIndicator size="large" color={Colors.primary} />
+        <Text style={styles.loadingText}>음식을 불러오는 중...</Text>
+      </LoadingContainer>
+    );
+  }
+
   return (
     <Container>
       <FlatList
         data={items}
         renderItem={renderItem}
         keyExtractor={(item) => item.id}
-        ListHeaderComponent={renderHeader} // 헤더에 제목과 버튼 포함
-        ListEmptyComponent={renderEmptyComponent} // 빈 리스트 처리
-        // VirtualizedList 기본 제공하는 당겨서 새로고침 props 사용
+        ListHeaderComponent={renderHeader}
+        ListEmptyComponent={renderEmptyComponent}
         refreshing={refreshing}
         onRefresh={handleRefresh}
-        contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 0 }}
+        contentContainerStyle={styles.listContainer}
         showsVerticalScrollIndicator={false}
       />
-      {loading && (
-        <View style={{ position: 'absolute', top: '50%', alignSelf: 'center' }}>
-          <Text>불러오는 중...</Text>
-        </View>
-      )}
     </Container>
   );
+};
+
+const styles = {
+  header: {
+    padding: Theme.spacing.lg,
+    paddingBottom: Theme.spacing.md,
+    alignItems: 'center',
+  },
+  headerButtons: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: Theme.spacing.md,
+    gap: Theme.spacing.sm,
+  },
+  addButton: {
+    backgroundColor: Colors.primary,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: Theme.spacing.lg,
+    paddingVertical: Theme.spacing.md,
+    borderRadius: Theme.borderRadius.md,
+    ...Theme.shadows.small,
+  },
+  addButtonText: {
+    color: Colors.textInverse,
+    fontSize: Theme.typography.body.fontSize,
+    fontWeight: '600',
+    marginLeft: Theme.spacing.xs,
+  },
+  sortButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: Theme.spacing.md,
+    paddingVertical: Theme.spacing.sm,
+    borderRadius: Theme.borderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.surface,
+  },
+  sortButtonActive: {
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
+  },
+  sortButtonText: {
+    fontSize: Theme.typography.caption.fontSize,
+    color: Colors.textSecondary,
+    marginLeft: Theme.spacing.xs,
+  },
+  sortButtonTextActive: {
+    color: Colors.textInverse,
+  },
+  listContainer: {
+    flexGrow: 1,
+    paddingHorizontal: Theme.spacing.md,
+  },
+  foodCard: {
+    marginBottom: Theme.spacing.md,
+    borderLeftWidth: 4,
+    ...Theme.shadows.small,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: Theme.spacing.md,
+  },
+  foodInfo: {
+    flex: 1,
+  },
+  foodTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: Theme.spacing.sm,
+  },
+  categoryIcon: {
+    marginRight: Theme.spacing.sm,
+  },
+  foodName: {
+    fontSize: Theme.typography.h3.fontSize,
+    fontWeight: Theme.typography.h3.fontWeight,
+    color: Colors.textPrimary,
+    flex: 1,
+  },
+  lowStockBadge: {
+    backgroundColor: Colors.warning,
+    paddingHorizontal: Theme.spacing.sm,
+    paddingVertical: Theme.spacing.xs,
+    borderRadius: Theme.borderRadius.round,
+  },
+  lowStockText: {
+    color: Colors.textInverse,
+    fontSize: Theme.typography.small.fontSize,
+    fontWeight: '500',
+  },
+  foodDetails: {
+    gap: Theme.spacing.xs,
+  },
+  detailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  detailText: {
+    fontSize: Theme.typography.caption.fontSize,
+    color: Colors.textSecondary,
+    marginLeft: Theme.spacing.xs,
+  },
+  deleteButton: {
+    padding: Theme.spacing.sm,
+  },
+  expirySection: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: Theme.spacing.sm,
+  },
+  expiryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  expiryText: {
+    fontSize: Theme.typography.caption.fontSize,
+    fontWeight: '500',
+    marginLeft: Theme.spacing.xs,
+  },
+  expiryBadge: {
+    paddingHorizontal: Theme.spacing.sm,
+    paddingVertical: Theme.spacing.xs,
+    borderRadius: Theme.borderRadius.round,
+  },
+  expiryBadgeText: {
+    color: Colors.textInverse,
+    fontSize: Theme.typography.small.fontSize,
+    fontWeight: '600',
+  },
+  addedDate: {
+    fontSize: Theme.typography.small.fontSize,
+    color: Colors.textDisabled,
+  },
+  loadingText: {
+    marginTop: Theme.spacing.md,
+    fontSize: Theme.typography.body.fontSize,
+    color: Colors.textSecondary,
+  },
+  emptySubtext: {
+    fontSize: Theme.typography.caption.fontSize,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    marginTop: Theme.spacing.sm,
+  },
 };
 
 export default FoodItemList;

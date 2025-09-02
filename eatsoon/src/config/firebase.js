@@ -3,7 +3,9 @@ import { initializeAuth, getReactNativePersistence } from 'firebase/auth';
 import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
+import { getStorage } from "firebase/storage";
 
+// EatSoon 프로젝트 설정
 const firebaseConfig = {
   apiKey: "AIzaSyB-ApuhEYLl6anQtbCReL-N2D6L7xeT1fQ",
   authDomain: "eatsoon-16f59.firebaseapp.com",
@@ -22,8 +24,12 @@ const auth = initializeAuth(app, {
   persistence: getReactNativePersistence(AsyncStorage)
 });
 
-// Firestore 초기화
+// Firestore
 const db = getFirestore(app);
 
-export { auth, db };
+// Storage
+const storage = getStorage(app);
+
+// 모듈 export
+export { auth, db, storage };
 export default app;

@@ -7,16 +7,57 @@ import TabNavigation from './src/navigations/TabNavigation';
 import AddFoodScreen from './src/screens/AddFoodScreen';
 import { ActivityIndicator, View } from 'react-native';
 import NotificationSettingsScreen from './src/screens/NotificationSettingsScreen';
+import { registerForPushNotificationsAsync } from './src/utils/notifications';
+import * as Notifications from 'expo-notifications';
+import { saveNotificationHistory } from './src/utils/notificationHistory';
+import { Colors } from './src/utils/colors';
 
 const Stack = createStackNavigator();
 
 const AppNavigator = () => {
   const { user, loading } = useAuth();
 
+  // 알림 시스템 초기화
+  React.useEffect(() => {
+    if (user) {
+      registerForPushNotificationsAsync();
+      
+      // 알림 리스너 설정
+      const notificationListener = Notifications.addNotificationReceivedListener(notification => {
+        console.log('알림을 받았습니다:', notification);
+        
+        // 알림 히스토리에 저장
+        saveNotificationHistory({
+          type: notification.request.content.data?.type || 'unknown',
+          title: notification.request.content.title,
+          body: notification.request.content.body,
+          data: notification.request.content.data,
+          receivedAt: new Date().toISOString()
+        });
+      });
+
+      const responseListener = Notifications.addNotificationResponseReceivedListener(response => {
+        console.log('알림을 탭했습니다:', response);
+        
+        // 알림 탭 시 추가 처리 (필요시)
+        const notificationData = response.notification.request.content.data;
+        if (notificationData?.type === 'expiry' && notificationData?.foodId) {
+          // 유통기한 알림 탭 시 해당 음식 상세 화면으로 이동 등의 처리
+          console.log('유통기한 알림 탭됨:', notificationData.foodName);
+        }
+      });
+
+      return () => {
+        Notifications.removeNotificationSubscription(notificationListener);
+        Notifications.removeNotificationSubscription(responseListener);
+      };
+    }
+  }, [user]);
+
   if (loading) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator size="large" color="#4f62c0" />
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.background }}>
+        <ActivityIndicator size="large" color={Colors.primary} />
       </View>
     );
   }
