@@ -147,10 +147,9 @@ const FoodItemList = ({ onItemDeleted, refreshTrigger }) => {
     }
   };
 
-  // 헤더 컴포넌트
+  // 헤더 컴포넌트 (버튼만)
   const renderHeader = () => (
     <View style={styles.header}>
-      <Title>음식 재고 목록</Title>
       <View style={styles.headerButtons}>
         <TouchableOpacity style={styles.addButton} onPress={handleAddPress}>
           <Ionicons name="add" size={20} color={Colors.textInverse} />
@@ -293,7 +292,8 @@ const FoodItemList = ({ onItemDeleted, refreshTrigger }) => {
 
 const styles = {
   header: {
-    padding: Theme.spacing.lg,
+    paddingHorizontal: Theme.spacing.lg,
+    paddingTop: 0,
     paddingBottom: Theme.spacing.md,
     alignItems: 'center',
   },
@@ -301,7 +301,7 @@ const styles = {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: Theme.spacing.md,
+    marginTop: 0,
     gap: Theme.spacing.sm,
   },
   addButton: {
@@ -344,6 +344,7 @@ const styles = {
   listContainer: {
     flexGrow: 1,
     paddingHorizontal: Theme.spacing.md,
+    paddingTop: 0,
   },
   foodCard: {
     marginBottom: Theme.spacing.md,

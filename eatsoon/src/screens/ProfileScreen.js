@@ -21,6 +21,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors, Theme } from '../utils/colors';
 import StatisticsService from '../services/statisticsService';
 import { useFocusEffect } from '@react-navigation/native';
+import { loadFoodItemsFromFirestore } from '../utils/firebaseStorage';
 import { 
   Container, 
   Card, 
@@ -62,10 +63,67 @@ export default function ProfileScreen() {
 
   const loadStatistics = async () => {
     try {
-      const stats = await StatisticsService.getSummary();
-      setStatistics(stats);
+      // 실제 음식 아이템 데이터를 기반으로 통계 계산
+      const foodItems = await loadFoodItemsFromFirestore();
+      
+      // 유통기한 임박 아이템 계산 (3일 이내)
+      const today = new Date();
+      const expiringSoonItems = foodItems.filter(item => {
+        const expiryDate = new Date(item.expirationDate);
+        const daysUntilExpiry = Math.ceil((expiryDate - today) / (1000 * 60 * 60 * 24));
+        return daysUntilExpiry <= 3 && daysUntilExpiry >= 0;
+      }).length;
+      
+      // 만료된 아이템 계산
+      const expiredItems = foodItems.filter(item => {
+        const expiryDate = new Date(item.expirationDate);
+        const daysUntilExpiry = Math.ceil((expiryDate - today) / (1000 * 60 * 60 * 24));
+        return daysUntilExpiry < 0;
+      }).length;
+      
+      // 이번 주 읽지 않은 알림 개수 계산
+      const { getNotificationHistory } = await import('../utils/notificationHistory');
+      const allNotifications = await getNotificationHistory();
+      const thisWeek = new Date();
+      thisWeek.setDate(thisWeek.getDate() - 7); // 7일 전
+      
+      const unreadThisWeek = allNotifications.filter(notification => {
+        const notificationDate = new Date(notification.timestamp);
+        return !notification.read && notificationDate >= thisWeek;
+      }).length;
+      
+      // 기존 통계에서 알림 관련 데이터만 가져오기
+      const existingStats = await StatisticsService.getSummary();
+      
+      const realTimeStats = {
+        totalFoodItems: foodItems.length,
+        expiringSoonItems: expiringSoonItems,
+        expiredItems: expiredItems,
+        notificationsSent: unreadThisWeek, // 이번 주 읽지 않은 알림으로 변경
+        notificationsReceived: existingStats.notificationsReceived || 0,
+        weeklyFoodAdded: existingStats.weeklyFoodAdded || 0,
+        monthlyFoodAdded: existingStats.monthlyFoodAdded || 0,
+        mostAddedCategory: existingStats.mostAddedCategory || '',
+      };
+      
+      setStatistics(realTimeStats);
+      
+      // 통계 서비스도 업데이트
+      await StatisticsService.updateExpiringItems(expiringSoonItems);
+      await StatisticsService.updateExpiredItems(expiredItems);
     } catch (error) {
       console.error('통계 로드 실패:', error);
+      // 실패 시 기본값 설정
+      setStatistics({
+        totalFoodItems: 0,
+        expiringSoonItems: 0,
+        expiredItems: 0,
+        notificationsSent: 0,
+        notificationsReceived: 0,
+        weeklyFoodAdded: 0,
+        monthlyFoodAdded: 0,
+        mostAddedCategory: '',
+      });
     }
   };
 
@@ -259,7 +317,7 @@ export default function ProfileScreen() {
           />
           <Divider />
           <ListItem
-            onPress={() => navigation.navigate('Settings', { screen: 'StatisticsReport' })}
+            onPress={() => navigation.navigate('StatisticsReport')}
             icon="analytics"
             title="사용 통계"
             subtitle="앱 사용 현황을 확인하세요"
@@ -267,7 +325,7 @@ export default function ProfileScreen() {
           />
           <Divider />
           <ListItem
-            onPress={() => navigation.navigate('Settings', { screen: 'NotificationHistory' })}
+            onPress={() => navigation.navigate('NotificationHistory')}
             icon="time"
             title="알림 히스토리"
             subtitle="받은 알림들을 확인하세요"

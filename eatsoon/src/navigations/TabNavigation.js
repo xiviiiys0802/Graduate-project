@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons'; // 이거 꼭 import 되어 있�
 import { Colors } from '../utils/colors';
 
 import HomeScreen from '../screens/HomeScreen';
-import ProfileScreen from '../screens/ProfileScreen';
+import ProfileStack from './ProfileStack';
 import SettingsStack from './SettingsStack'; // 새 이름으로 불러오기
 
 const Tab = createBottomTabNavigator();
@@ -33,6 +33,14 @@ export default function TabNavigation() {
         name="Home"
         component={HomeScreen}
         options={{
+          title: '음식 재고 목록',
+          headerStyle: {
+            backgroundColor: '#f8f9fa',
+          },
+          headerTintColor: '#333',
+          headerTitleStyle: {
+            fontWeight: '600',
+          },
           tabBarLabel: '홈',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="home-outline" color={color} size={size} />
@@ -41,8 +49,9 @@ export default function TabNavigation() {
       />
       <Tab.Screen
         name="Profile"
-        component={ProfileScreen}
+        component={ProfileStack}
         options={{
+          headerShown: false,
           tabBarLabel: '마이페이지',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="person-outline" color={color} size={size} />
