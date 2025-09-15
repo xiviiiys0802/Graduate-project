@@ -2,8 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { 
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword, 
-  signOut, 
-  onAuthStateChanged 
+  signOut
 } from 'firebase/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { auth } from '../config/firebase';
@@ -20,7 +19,7 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const checkAutoLogin = async () => {
       const autoLogin = await AsyncStorage.getItem('autoLogin');
-      const unsubscribe = onAuthStateChanged(auth, (user) => {
+      const unsubscribe = auth.onAuthStateChanged((user) => {
         if (user && autoLogin === 'true') {
           console.log('자동 로그인 허용됨, 로그인 유지:', user.email);
           setUser(user);
