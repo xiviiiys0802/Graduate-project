@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, FlatList, TextInput, ActivityIndicator, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { auth, onAuthStateChanged } from '../config/firebase';
+import { auth } from '../config/firebase';
 import { subscribePantry, fetchRecipesOnce, seedRecipesIfEmpty, dedupeRecipesByName } from '../services/firestore';
 import { recommendRecipes } from '../utils/recommendation';
 import { listAll, addItem, toggleCheck, updateItem, deleteItem } from '../utils/shoppingList';
@@ -29,7 +29,7 @@ export default function MoreScreen() {
     let unsubAuth;
     let unsubPantry;
 
-    unsubAuth = onAuthStateChanged(auth, async (user) => {
+    unsubAuth = auth.onAuthStateChanged(async (user) => {
       if (!user) {
         setPantry([]); 
         setRecipes([]); 

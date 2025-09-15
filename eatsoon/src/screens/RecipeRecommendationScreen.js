@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, FlatList, ActivityIndicator, TouchableOpacity, Image, StyleSheet } from 'react-native';
-import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../config/firebase';
 import { subscribePantry, fetchRecipesOnce, seedRecipesIfEmpty, dedupeRecipesByName } from '../services/firestore';
 import { recommendRecipes } from '../utils/recommendation';
@@ -80,7 +79,7 @@ export default function RecipeRecommendationScreen({ navigation }) {
     let unsubAuth;
     let unsubPantry;
 
-    unsubAuth = onAuthStateChanged(auth, async (user) => {
+    unsubAuth = auth.onAuthStateChanged(async (user) => {
       if (!user) {
         setPantry([]); setRecipes([]); setLoading(false);
         return;
