@@ -12,13 +12,7 @@ const SmoothSearchInput = ({
   style 
 }) => {
   const [isFocused, setIsFocused] = useState(false);
-  const [internalValue, setInternalValue] = useState(value || '');
   const textInputRef = useRef(null);
-
-  // 외부 value가 변경될 때 내부 상태 동기화
-  useEffect(() => {
-    setInternalValue(value || '');
-  }, [value]);
 
   const handleFocus = () => {
     setIsFocused(true);
@@ -31,12 +25,10 @@ const SmoothSearchInput = ({
   };
 
   const handleTextChange = (text) => {
-    setInternalValue(text);
     onChangeText && onChangeText(text);
   };
 
   const handleClear = () => {
-    setInternalValue('');
     onChangeText && onChangeText('');
     // 포커스 유지
     setTimeout(() => {
@@ -56,7 +48,7 @@ const SmoothSearchInput = ({
         <TextInput
           ref={textInputRef}
           style={styles.searchInput}
-          value={internalValue}
+          value={value || ''}
           onChangeText={handleTextChange}
           placeholder={placeholder}
           placeholderTextColor="#999"
@@ -68,7 +60,7 @@ const SmoothSearchInput = ({
           autoCorrect={false}
           autoCapitalize="none"
         />
-        {(internalValue?.length || 0) > 0 && (
+        {((value || '').length > 0) && (
           <TouchableOpacity onPress={handleClear} style={styles.clearButton}>
             <Ionicons name="close-circle" size={20} color="#999" />
           </TouchableOpacity>
