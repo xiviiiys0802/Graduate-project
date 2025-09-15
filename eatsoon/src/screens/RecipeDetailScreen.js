@@ -6,13 +6,14 @@ import {
   ScrollView,
   Image,
   TouchableOpacity,
+  SafeAreaView,
 } from 'react-native';
 
 export default function RecipeDetailScreen({ route, navigation }) {
   const { recipe } = route.params;
 
   return (
-    <ScrollView style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.backButton}
@@ -22,6 +23,8 @@ export default function RecipeDetailScreen({ route, navigation }) {
         </TouchableOpacity>
         <Text style={styles.title}>{recipe.name}</Text>
       </View>
+      
+      <ScrollView style={styles.scrollView}>
 
       {recipe.imageUrl && (
         <Image source={{ uri: recipe.imageUrl }} style={styles.image} />
@@ -53,7 +56,8 @@ export default function RecipeDetailScreen({ route, navigation }) {
           </View>
         </View>
       </View>
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
@@ -61,6 +65,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f8f9fa',
+  },
+  scrollView: {
+    flex: 1,
   },
   header: {
     flexDirection: 'row',
