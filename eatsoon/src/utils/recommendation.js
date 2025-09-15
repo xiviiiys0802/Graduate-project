@@ -62,7 +62,7 @@ export function scoreRecipe(recipe, pantryIdx, weights = { wUrgency: 1.2, wMatch
 
   const neededCount = needed.length;
   const ratio = neededCount ? match / neededCount : 0;
-  const score = weights.wUrgency * urgency + weights.wMatch * ratio - weights.wMissing * missing.length;
+  const score = weights.wUrgency * urgency + weights.wMatch * ratio - weights.wMissing * (missing?.length || 0);
 
   return { score, matchCount: match, neededCount, missing };
 }
@@ -74,7 +74,7 @@ export function recommendRecipes(recipes = [], pantry = [], options = { topK: 20
   const ranked = recipes
     .map(r => ({ ...r, ...scoreRecipe(r, idx) }))
     .filter(r => (onlyFullMatch ? r.matchCount === r.neededCount : true))
-    .filter(r => r.missing.length <= maxMissing)
+    .filter(r => (r.missing?.length || 0) <= maxMissing)
     .sort((a, b) => b.score - a.score);
 
   return ranked.slice(0, topK);

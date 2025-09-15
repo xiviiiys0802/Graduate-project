@@ -256,7 +256,7 @@ class StatisticsService {
   // 실제 Firestore 데이터를 기반으로 통계 계산
   async getRealtimeSummary() {
     try {
-      const foodItems = await loadFoodItemsFromFirestore();
+      const foodItems = await loadFoodItemsFromFirestore() || [];
       const now = new Date();
       
       // 유통기한 임박 아이템 계산 (3일 이내)
@@ -304,7 +304,7 @@ class StatisticsService {
   // 실제 Firestore 데이터를 기반으로 완전한 통계 계산
   async getRealtimeFullStatistics() {
     try {
-      const foodItems = await loadFoodItemsFromFirestore();
+      const foodItems = await loadFoodItemsFromFirestore() || [];
       const now = new Date();
       
       // 기본 통계 계산
@@ -410,7 +410,7 @@ class StatisticsService {
   // 요일별 음식 추가 데이터 계산
   async getWeeklyFoodAddedData() {
     try {
-      const foodItems = await loadFoodItemsFromFirestore();
+      const foodItems = await loadFoodItemsFromFirestore() || [];
       const now = new Date();
       
       // 이번 주 월요일부터 일요일까지의 날짜 범위 계산
