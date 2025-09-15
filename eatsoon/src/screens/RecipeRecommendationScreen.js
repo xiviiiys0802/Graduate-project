@@ -47,7 +47,7 @@ const MatchingProgress = ({ matchCount, neededCount, missing }) => {
             </View>
           ))}
           {/* 부족한 재료들 */}
-          {Array.from({ length: missing.length }, (_, index) => (
+          {Array.from({ length: missing?.length || 0 }, (_, index) => (
             <View key={`missing-${index}`} style={styles.ingredientMissing}>
               <Ionicons name="close-circle" size={16} color={Colors.danger} />
             </View>
@@ -56,7 +56,7 @@ const MatchingProgress = ({ matchCount, neededCount, missing }) => {
       </View>
       
       {/* 부족한 재료 목록 */}
-      {missing.length > 0 && (
+      {(missing?.length || 0) > 0 && (
         <View style={styles.missingContainer}>
           <Text style={styles.missingLabel}>부족한 재료:</Text>
           <Text style={styles.missingText}>
@@ -179,7 +179,7 @@ export default function RecipeRecommendationScreen({ navigation }) {
               />
               
               <View style={styles.recipeActions}>
-                {!!item.missing.length && (
+                {(item.missing?.length || 0) > 0 && (
                   <Button
                     style={[styles.actionButton, styles.shoppingButton]}
                     onPress={async () => {

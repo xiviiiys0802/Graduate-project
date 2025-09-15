@@ -164,7 +164,7 @@ export default function MoreScreen() {
             </View>
           ))}
           {/* 부족한 재료들 */}
-          {Array.from({ length: missing.length }, (_, index) => (
+          {Array.from({ length: missing?.length || 0 }, (_, index) => (
             <View key={`missing-${index}`} style={styles.ingredientMiniMissing}>
               <Text style={styles.ingredientMiniText}>✗</Text>
             </View>
