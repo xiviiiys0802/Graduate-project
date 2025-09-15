@@ -19,6 +19,7 @@ import { useNavigation } from '@react-navigation/native';
 import { storage } from '../config/firebase';
 import { Ionicons } from '@expo/vector-icons';
 import StatisticsService from '../services/statisticsService';
+import { getUnreadNotificationCount } from '../utils/notificationHistory';
 import { Colors, Theme } from '../utils/colors';
 import { useFocusEffect } from '@react-navigation/native';
 import { loadFoodItemsFromFirestore } from '../utils/firebaseStorage';
@@ -64,7 +65,13 @@ export default function ProfileScreen() {
   const loadStatistics = async () => {
     try {
       const stats = await StatisticsService.getRealtimeSummary();
-      setStatistics(stats);
+      // 안읽은 알림 개수 가져오기
+      const unreadCount = await getUnreadNotificationCount();
+      
+      setStatistics({
+        ...stats,
+        notificationsSent: unreadCount, // 안읽은 알림으로 변경
+      });
     } catch (error) {
       console.error('통계 로드 실패:', error);
       // 실패 시 기본값 설정
@@ -264,11 +271,11 @@ export default function ProfileScreen() {
           
           <TouchableOpacity 
             style={styles.statCard}
-            onPress={() => navigation.navigate('Home', { screen: 'NotificationHistory' })}
+            onPress={() => navigation.navigate('NotificationHistory')}
             activeOpacity={0.7}
           >
             <Text style={styles.statNumber}>{statistics?.notificationsSent || 0}</Text>
-            <Text style={styles.statLabel}>이번 주 알림</Text>
+            <Text style={styles.statLabel}>안읽은 알림</Text>
           </TouchableOpacity>
         </View>
 
@@ -285,7 +292,7 @@ export default function ProfileScreen() {
           />
           <Divider />
           <ListItem
-            onPress={() => navigation.navigate('Home', { screen: 'StatisticsReport' })}
+            onPress={() => navigation.navigate('StatisticsReport')}
             icon="analytics"
             title="사용 통계"
             subtitle="앱 사용 현황을 확인하세요"
@@ -293,7 +300,7 @@ export default function ProfileScreen() {
           />
           <Divider />
           <ListItem
-            onPress={() => navigation.navigate('Home', { screen: 'NotificationHistory' })}
+            onPress={() => navigation.navigate('NotificationHistory')}
             icon="time"
             title="알림 히스토리"
             subtitle="받은 알림들을 확인하세요"

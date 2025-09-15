@@ -1,13 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { View, TextInput, TouchableOpacity, Text, Alert, StyleSheet } from 'react-native';
 import DateTimePicker from 'react-native-ui-datepicker';
-import { v4 as uuidv4 } from 'uuid';
 import { Container, Title, Button, ButtonText, Input } from './StyledComponents';
 import { saveFoodItemToFirestore, updateFoodItemInFirestore } from '../utils/firebaseStorage';
 import { useAuth } from '../contexts/AuthContext';
 import { scheduleExpiryNotification, scheduleStockNotification } from '../utils/notifications';
 import VoiceRecognitionButton from './VoiceRecognitionButton';
 import { Colors, Theme } from '../utils/colors';
+
+// 간단한 ID 생성 함수
+const generateId = () => {
+  return Date.now().toString(36) + Math.random().toString(36).substr(2);
+};
 import { Ionicons } from '@expo/vector-icons';
 import StatisticsService from '../services/statisticsService';
 
@@ -99,9 +103,17 @@ const FoodItemForm = ({ onItemAdded, editMode = false, itemToEdit = null }) => {
     setLoading(true);
 
     try {
+      // 날짜를 안전하게 저장 (시간대 문제 방지)
+      const formatDate = (date) => {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+      };
+
       const itemData = {
         name: name.trim(),
-        expirationDate: expirationDate.toISOString().split('T')[0],
+        expirationDate: formatDate(expirationDate),
         quantity: parseInt(quantity) || 1,
         category: category.trim() || null,
         storageType: storageType,
@@ -113,7 +125,7 @@ const FoodItemForm = ({ onItemAdded, editMode = false, itemToEdit = null }) => {
         await updateFoodItemInFirestore(itemToEdit.id, itemData);
       } else {
         // 추가 모드
-        itemData.addedDate = new Date().toISOString().split('T')[0];
+        itemData.addedDate = formatDate(new Date());
         await saveFoodItemToFirestore(itemData);
       }
       
@@ -128,7 +140,7 @@ const FoodItemForm = ({ onItemAdded, editMode = false, itemToEdit = null }) => {
       // 알림 예약 (추가 모드에서만)
       if (!editMode) {
         try {
-          const itemForNotification = { ...itemData, id: uuidv4() };
+          const itemForNotification = { ...itemData, id: generateId() };
           await scheduleExpiryNotification(itemForNotification);
           
           if (itemData.quantity <= 2) {
