@@ -5,9 +5,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import MoreScreen from '../screens/MoreScreen';
 import RecipeRecommendationScreen from '../screens/RecipeRecommendationScreen';
 import RecipeDetailScreen from '../screens/RecipeDetailScreen';
-import StatisticsReportScreen from '../screens/StatisticsReportScreen';
 import ShoppingListScreen from '../screens/ShoppingListScreen';
-import NotificationHistoryScreen from '../screens/NotificationHistoryScreen';
 import ProfileEditScreen from '../screens/ProfileEditScreen';
 import PrivacyScreen from '../screens/PrivacyScreen';
 import PrivacyPolicyScreen from '../screens/PrivacyPolicyScreen';
@@ -23,13 +21,7 @@ export default function SettingsStack() {
       <Stack.Screen name="More" component={MoreScreen} />
       <Stack.Screen name="RecipeRecommendation" component={RecipeRecommendationScreen} />
       <Stack.Screen name="RecipeDetail" component={RecipeDetailScreen} />
-      <Stack.Screen name="StatisticsReport" component={StatisticsReportScreen} />
       <Stack.Screen name="ShoppingList" component={ShoppingListScreen} />
-      <Stack.Screen 
-        name="NotificationHistory" 
-        component={NotificationHistoryScreen}
-        options={{ title: '알림 히스토리' }}
-      />
       <Stack.Screen 
         name="ProfileEdit" 
         component={ProfileEditScreen}

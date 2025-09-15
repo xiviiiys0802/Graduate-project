@@ -26,7 +26,8 @@ export const BarChart = ({ data, title, height = 200, barColor = Colors.primary 
       <View style={styles.chartContent}>
         <View style={styles.barsContainer}>
           {data.map((item, index) => {
-            const barHeight = maxValue > 0 ? (item.value / maxValue) * (height - 80) : 0;
+            const barHeight = maxValue > 0 ? (item.value / maxValue) * (height - 100) : 0;
+            const isMaxValue = item.value === maxValue;
             return (
               <View key={index} style={styles.barItem}>
                 <View style={styles.barContainer}>
@@ -35,13 +36,18 @@ export const BarChart = ({ data, title, height = 200, barColor = Colors.primary 
                       styles.bar,
                       {
                         height: barHeight,
-                        backgroundColor: barColor,
+                        backgroundColor: isMaxValue ? barColor : barColor + '80',
+                        shadowColor: barColor,
+                        shadowOffset: { width: 0, height: 2 },
+                        shadowOpacity: 0.3,
+                        shadowRadius: 4,
+                        elevation: 3,
                       },
                     ]}
                   />
                 </View>
                 <Text style={styles.barLabel}>{item.label}</Text>
-                <Text style={styles.barValue}>{item.value}</Text>
+                <Text style={[styles.barValue, { color: isMaxValue ? barColor : Colors.textPrimary }]}>{item.value}</Text>
               </View>
             );
           })}
@@ -51,8 +57,8 @@ export const BarChart = ({ data, title, height = 200, barColor = Colors.primary 
   );
 };
 
-// 원형 차트 컴포넌트
-export const PieChart = ({ data, title, size = 150 }) => {
+// 카테고리 분포 차트 (막대 차트 방식)
+export const PieChart = ({ data, title, size = 120 }) => {
   if (!data || data.length === 0) {
     return (
       <View style={styles.chartContainer}>
@@ -71,34 +77,33 @@ export const PieChart = ({ data, title, size = 150 }) => {
     <View style={styles.chartContainer}>
       <Text style={styles.chartTitle}>{title}</Text>
       <View style={styles.pieChartContainer}>
-        <View style={[styles.pieChart, { width: size, height: size }]}>
+        {/* 막대 차트 방식으로 표시 */}
+        <View style={styles.categoryBars}>
           {data.map((item, index) => {
+            const color = colors[index % colors.length];
             const percentage = total > 0 ? (item.value / total) * 100 : 0;
-            const color = colors[index % colors.length];
-            
             return (
-              <View key={index} style={styles.pieSlice}>
-                <View
-                  style={[
-                    styles.pieSliceInner,
-                    {
-                      backgroundColor: color,
-                      width: `${percentage}%`,
-                    },
-                  ]}
-                />
-              </View>
-            );
-          })}
-        </View>
-        <View style={styles.legendContainer}>
-          {data.map((item, index) => {
-            const color = colors[index % colors.length];
-            return (
-              <View key={index} style={styles.legendItem}>
-                <View style={[styles.legendColor, { backgroundColor: color }]} />
-                <Text style={styles.legendText}>{item.label}</Text>
-                <Text style={styles.legendValue}>{item.value}</Text>
+              <View key={index} style={styles.categoryBarItem}>
+                <View style={styles.categoryBarContainer}>
+                  <View
+                    style={[
+                      styles.categoryBar,
+                      {
+                        width: `${percentage}%`,
+                        backgroundColor: color,
+                      },
+                    ]}
+                  />
+                </View>
+                <View style={styles.categoryBarInfo}>
+                  <View style={styles.categoryBarLabel}>
+                    <View style={[styles.categoryBarColor, { backgroundColor: color }]} />
+                    <Text style={styles.categoryBarText}>{item.label}</Text>
+                  </View>
+                  <Text style={styles.categoryBarValue}>
+                    {item.value}개 ({percentage.toFixed(0)}%)
+                  </Text>
+                </View>
               </View>
             );
           })}
@@ -189,18 +194,11 @@ export const LineChart = ({ data, title, height = 200, lineColor = Colors.primar
   );
 };
 
-// 통계 카드 컴포넌트
-export const StatCard = ({ title, value, subtitle, icon, color = Colors.primary }) => {
+// 통계 카드 컴포넌트 (간단한 버전)
+export const StatCard = ({ title, value, subtitle, color = Colors.primary }) => {
   return (
     <View style={[styles.statCard, { borderLeftColor: color }]}>
-      <View style={styles.statHeader}>
-        <Text style={styles.statTitle}>{title}</Text>
-        {icon && (
-          <View style={[styles.statIcon, { backgroundColor: color + '20' }]}>
-            {icon}
-          </View>
-        )}
-      </View>
+      <Text style={styles.statTitle}>{title}</Text>
       <Text style={[styles.statValue, { color }]}>{value}</Text>
       {subtitle && <Text style={styles.statSubtitle}>{subtitle}</Text>}
     </View>
@@ -264,59 +262,69 @@ const styles = StyleSheet.create({
     marginBottom: Theme.spacing.xs,
   },
   bar: {
-    width: 20,
-    borderRadius: 2,
+    width: 24,
+    borderRadius: 4,
     minHeight: 4,
   },
   barLabel: {
     fontSize: Theme.typography.small.fontSize,
     color: Colors.textSecondary,
     textAlign: 'center',
+    fontWeight: '500',
+    marginTop: Theme.spacing.sm,
   },
   barValue: {
     fontSize: Theme.typography.small.fontSize,
     color: Colors.textPrimary,
-    fontWeight: '600',
+    fontWeight: '700',
     marginTop: Theme.spacing.xs,
   },
 
-  // 원형 차트
+  // 카테고리 막대 차트
   pieChartContainer: {
-    alignItems: 'center',
+    width: '100%',
   },
-  pieChart: {
-    borderRadius: 75,
-    overflow: 'hidden',
+  categoryBars: {
+    width: '100%',
+  },
+  categoryBarItem: {
     marginBottom: Theme.spacing.md,
   },
-  pieSlice: {
-    position: 'absolute',
-    width: '100%',
+  categoryBarContainer: {
+    height: 12,
+    backgroundColor: Colors.border,
+    borderRadius: 6,
+    marginBottom: Theme.spacing.sm,
+    overflow: 'hidden',
+    ...Theme.shadows.small,
+  },
+  categoryBar: {
     height: '100%',
+    borderRadius: 6,
+    ...Theme.shadows.small,
   },
-  pieSliceInner: {
-    height: '100%',
+  categoryBarInfo: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
-  legendContainer: {
-    width: '100%',
-  },
-  legendItem: {
+  categoryBarLabel: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: Theme.spacing.xs,
+    flex: 1,
   },
-  legendColor: {
+  categoryBarColor: {
     width: 12,
     height: 12,
     borderRadius: 6,
-    marginRight: Theme.spacing.xs,
+    marginRight: Theme.spacing.sm,
   },
-  legendText: {
-    flex: 1,
-    fontSize: Theme.typography.small.fontSize,
+  categoryBarText: {
+    fontSize: Theme.typography.body.fontSize,
     color: Colors.textPrimary,
+    fontWeight: '600',
   },
-  legendValue: {
+  categoryBarValue: {
     fontSize: Theme.typography.small.fontSize,
     color: Colors.textSecondary,
     fontWeight: '600',
@@ -361,22 +369,10 @@ const styles = StyleSheet.create({
     borderLeftWidth: 4,
     ...Theme.shadows.small,
   },
-  statHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: Theme.spacing.sm,
-  },
   statTitle: {
     fontSize: Theme.typography.body.fontSize,
     color: Colors.textSecondary,
-  },
-  statIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
+    marginBottom: Theme.spacing.xs,
   },
   statValue: {
     fontSize: Theme.typography.h2.fontSize,

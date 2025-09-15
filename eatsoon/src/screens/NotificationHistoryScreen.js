@@ -182,6 +182,10 @@ export default function NotificationHistoryScreen() {
         return '📦';
       case 'daily':
         return '📅';
+      case 'smart':
+        return '🧠';
+      case 'recipe':
+        return '👨‍🍳';
       default:
         return '🔔';
     }
@@ -195,6 +199,10 @@ export default function NotificationHistoryScreen() {
         return Colors.warning;
       case 'daily':
         return Colors.success;
+      case 'smart':
+        return Colors.info;
+      case 'recipe':
+        return Colors.primary;
       default:
         return Colors.info;
     }
@@ -208,6 +216,10 @@ export default function NotificationHistoryScreen() {
         return '재고부족';
       case 'daily':
         return '일일알림';
+      case 'smart':
+        return '스마트알림';
+      case 'recipe':
+        return '요리추천';
       default:
         return '전체';
     }
@@ -306,6 +318,36 @@ export default function NotificationHistoryScreen() {
             selectedFilter === 'daily' && styles.filterButtonTextActive
           ]}>
             일일알림 ({filterNotificationsByType(allNotifications, 'daily').length})
+          </Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity
+          style={[
+            styles.filterButton,
+            selectedFilter === 'smart' && styles.filterButtonActive
+          ]}
+          onPress={() => handleFilterChange('smart')}
+        >
+          <Text style={[
+            styles.filterButtonText,
+            selectedFilter === 'smart' && styles.filterButtonTextActive
+          ]}>
+            스마트알림 ({filterNotificationsByType(allNotifications, 'smart').length})
+          </Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity
+          style={[
+            styles.filterButton,
+            selectedFilter === 'recipe' && styles.filterButtonActive
+          ]}
+          onPress={() => handleFilterChange('recipe')}
+        >
+          <Text style={[
+            styles.filterButtonText,
+            selectedFilter === 'recipe' && styles.filterButtonTextActive
+          ]}>
+            요리추천 ({filterNotificationsByType(allNotifications, 'recipe').length})
           </Text>
         </TouchableOpacity>
       </ScrollView>

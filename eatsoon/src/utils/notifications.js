@@ -151,19 +151,7 @@ export async function scheduleExpiryNotification(foodItem) {
         },
       });
 
-      // 알림 히스토리에 저장
-      await saveNotificationHistory({
-        type: 'expiry',
-        title: notification.title,
-        body: notification.body,
-        data: { 
-          foodId: foodItem.id,
-          foodName: foodItem.name,
-          daysLeft: notification.days
-        },
-        scheduledDate: triggerDate,
-        daysLeft: notification.days
-      });
+      // 알림 히스토리는 실제 발송 시에만 저장 (스케줄링 시에는 저장하지 않음)
 
       scheduledNotifications.push({
         id: identifier,
@@ -226,19 +214,7 @@ export async function scheduleStockNotification(foodItem) {
       },
     });
 
-    // 알림 히스토리에 저장
-    await saveNotificationHistory({
-      type: 'stock',
-      title: '재고 부족 알림',
-      body: `${foodItem.name}의 재고가 부족합니다. (${foodItem.quantity}개 남음)`,
-      data: { 
-        foodId: foodItem.id,
-        foodName: foodItem.name,
-        quantity: foodItem.quantity
-      },
-      scheduledDate: new Date(),
-      quantity: foodItem.quantity
-    });
+    // 알림 히스토리는 실제 발송 시에만 저장 (스케줄링 시에는 저장하지 않음)
 
     // 최근 재고 알림 정보 저장 (중복 방지용)
     await saveRecentStockNotification(foodItem.id, foodItem.quantity);
@@ -289,14 +265,7 @@ export async function scheduleDailyNotification() {
       },
     });
 
-    // 알림 히스토리에 저장
-    await saveNotificationHistory({
-      type: 'daily',
-      title: 'EatSoon 일일 알림',
-      body: '오늘의 음식 재고를 확인해보세요!',
-      data: { type: 'daily' },
-      scheduledDate: new Date(),
-    });
+    // 알림 히스토리는 실제 발송 시에만 저장 (스케줄링 시에는 저장하지 않음)
 
     console.log(`정기 알림 예약됨: 매일 ${settings.dailyTime}`);
     
@@ -310,6 +279,92 @@ export async function scheduleDailyNotification() {
     return identifier;
   } catch (error) {
     console.error('정기 알림 예약 실패:', error);
+    return null;
+  }
+}
+
+// 스마트 알림 예약 (AI 기반 최적 요리 시점 추천)
+export async function scheduleSmartNotification(foodItems) {
+  try {
+    const settings = await loadNotificationSettings();
+    if (!settings.smartEnabled) return null;
+
+    // AI 분석을 통한 최적 요리 시점 계산
+    const optimalCookingTime = calculateOptimalCookingTime(foodItems);
+    if (!optimalCookingTime) return null;
+
+    const identifier = await Notifications.scheduleNotificationAsync({
+      content: {
+        title: '🍳 요리하기 좋은 시간이에요!',
+        body: `현재 보유한 재료로 맛있는 요리를 만들어보세요. ${optimalCookingTime.recommendedDish} 추천!`,
+        data: { 
+          type: 'smart',
+          recommendedDish: optimalCookingTime.recommendedDish,
+          ingredients: optimalCookingTime.ingredients
+        },
+      },
+      trigger: {
+        date: optimalCookingTime.scheduledTime,
+      },
+    });
+
+    // 알림 히스토리는 실제 발송 시에만 저장 (스케줄링 시에는 저장하지 않음)
+
+    console.log(`스마트 알림 예약됨: ${optimalCookingTime.recommendedDish}`);
+    
+    // 통계 업데이트
+    try {
+      await StatisticsService.addNotificationSent();
+    } catch (statError) {
+      console.error('알림 통계 업데이트 실패:', statError);
+    }
+    
+    return identifier;
+  } catch (error) {
+    console.error('스마트 알림 예약 실패:', error);
+    return null;
+  }
+}
+
+// 요리 추천 알림 예약
+export async function scheduleRecipeNotification(availableIngredients) {
+  try {
+    const settings = await loadNotificationSettings();
+    if (!settings.recipeEnabled) return null;
+
+    // 사용 가능한 재료로 만들 수 있는 요리 찾기
+    const recommendedRecipe = findRecommendedRecipe(availableIngredients);
+    if (!recommendedRecipe) return null;
+
+    const identifier = await Notifications.scheduleNotificationAsync({
+      content: {
+        title: '👨‍🍳 요리 추천',
+        body: `${recommendedRecipe.name}을 만들어보세요! 필요한 재료가 모두 준비되어 있어요.`,
+        data: { 
+          type: 'recipe',
+          recipeId: recommendedRecipe.id,
+          recipeName: recommendedRecipe.name
+        },
+      },
+      trigger: {
+        seconds: 1, // 즉시 알림
+      },
+    });
+
+    // 알림 히스토리는 실제 발송 시에만 저장 (스케줄링 시에는 저장하지 않음)
+
+    console.log(`요리 추천 알림 예약됨: ${recommendedRecipe.name}`);
+    
+    // 통계 업데이트
+    try {
+      await StatisticsService.addNotificationSent();
+    } catch (statError) {
+      console.error('알림 통계 업데이트 실패:', statError);
+    }
+    
+    return identifier;
+  } catch (error) {
+    console.error('요리 추천 알림 예약 실패:', error);
     return null;
   }
 }
@@ -447,9 +502,16 @@ export async function loadNotificationSettings() {
       expiryEnabled: true,
       stockEnabled: true,
       dailyEnabled: false,
+      smartEnabled: true,
+      recipeEnabled: true,
       expiryDays: [3, 1, 0], // 3일 전, 1일 전, 당일
       dailyTime: '09:00', // 오전 9시
-      stockThreshold: 2 // 재고 부족 임계값
+      stockThreshold: 2, // 재고 부족 임계값
+      smartThreshold: 5, // 스마트 알림 임계값
+      quietHours: { start: '22:00', end: '08:00' }, // 방해 금지 시간
+      priorityMode: 'normal', // normal, urgent, silent
+      vibrationEnabled: true,
+      soundEnabled: true
     };
   } catch (error) {
     console.error('알림 설정 불러오기 실패:', error);
@@ -457,10 +519,117 @@ export async function loadNotificationSettings() {
       expiryEnabled: true,
       stockEnabled: true,
       dailyEnabled: false,
+      smartEnabled: true,
+      recipeEnabled: true,
       expiryDays: [3, 1, 0],
       dailyTime: '09:00',
-      stockThreshold: 2
+      stockThreshold: 2,
+      smartThreshold: 5,
+      quietHours: { start: '22:00', end: '08:00' },
+      priorityMode: 'normal',
+      vibrationEnabled: true,
+      soundEnabled: true
     };
+  }
+}
+
+// AI 기반 최적 요리 시점 계산
+function calculateOptimalCookingTime(foodItems) {
+  try {
+    const now = new Date();
+    const expiringSoon = foodItems.filter(item => {
+      const expiryDate = new Date(item.expirationDate);
+      const daysUntilExpiry = Math.ceil((expiryDate - now) / (1000 * 60 * 60 * 24));
+      return daysUntilExpiry <= 3 && daysUntilExpiry >= 0;
+    });
+
+    if (expiringSoon.length === 0) return null;
+
+    // 가장 임박한 재료들로 요리 추천
+    const mainIngredient = expiringSoon.sort((a, b) => 
+      new Date(a.expirationDate) - new Date(b.expirationDate)
+    )[0];
+
+    // 요리 추천 로직 (간단한 버전)
+    const recipeRecommendations = {
+      '채소': { dish: '야채볶음', time: 2 }, // 2시간 후
+      '과일': { dish: '과일샐러드', time: 1 }, // 1시간 후
+      '육류': { dish: '고기구이', time: 3 }, // 3시간 후
+      '유제품': { dish: '치즈토스트', time: 1 }, // 1시간 후
+      '곡물': { dish: '볶음밥', time: 2 }, // 2시간 후
+    };
+
+    const recommendation = recipeRecommendations[mainIngredient.category] || 
+                          { dish: '간단한 요리', time: 2 };
+
+    const scheduledTime = new Date(now.getTime() + recommendation.time * 60 * 60 * 1000);
+
+    return {
+      recommendedDish: recommendation.dish,
+      ingredients: expiringSoon.map(item => item.name),
+      scheduledTime: scheduledTime,
+      mainIngredient: mainIngredient.name
+    };
+  } catch (error) {
+    console.error('최적 요리 시점 계산 실패:', error);
+    return null;
+  }
+}
+
+// 사용 가능한 재료로 만들 수 있는 요리 찾기
+function findRecommendedRecipe(availableIngredients) {
+  try {
+    // 간단한 요리 데이터베이스 (실제로는 더 복잡한 로직 필요)
+    const recipes = [
+      {
+        id: '1',
+        name: '된장찌개',
+        ingredients: ['된장', '두부', '감자', '애호박', '양파', '대파'],
+        difficulty: 'easy'
+      },
+      {
+        id: '2',
+        name: '김치찌개',
+        ingredients: ['김치', '돼지고기', '두부', '양파', '대파'],
+        difficulty: 'easy'
+      },
+      {
+        id: '3',
+        name: '계란말이',
+        ingredients: ['계란', '대파', '소금', '당근'],
+        difficulty: 'easy'
+      },
+      {
+        id: '4',
+        name: '야채볶음',
+        ingredients: ['양파', '당근', '애호박', '마늘'],
+        difficulty: 'easy'
+      }
+    ];
+
+    // 사용 가능한 재료 이름들을 소문자로 변환
+    const availableNames = availableIngredients.map(ingredient => 
+      ingredient.name.toLowerCase()
+    );
+
+    // 재료가 충분히 있는 요리 찾기 (최소 3개 이상의 재료가 있어야 함)
+    for (const recipe of recipes) {
+      const matchingIngredients = recipe.ingredients.filter(ingredient =>
+        availableNames.some(available => 
+          available.includes(ingredient.toLowerCase()) || 
+          ingredient.toLowerCase().includes(available)
+        )
+      );
+
+      if (matchingIngredients.length >= Math.min(3, recipe.ingredients.length * 0.6)) {
+        return recipe;
+      }
+    }
+
+    return null;
+  } catch (error) {
+    console.error('요리 추천 실패:', error);
+    return null;
   }
 }
 

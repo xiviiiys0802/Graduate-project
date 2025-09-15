@@ -62,7 +62,7 @@ export default function ProfileScreen() {
 
   const loadStatistics = async () => {
     try {
-      const stats = await StatisticsService.getSummary();
+      const stats = await StatisticsService.getRealtimeSummary();
       setStatistics(stats);
     } catch (error) {
       console.error('통계 로드 실패:', error);
@@ -232,18 +232,32 @@ export default function ProfileScreen() {
 
         {/* 통계 카드 */}
         <View style={styles.statsContainer}>
-          <Card style={styles.statCard}>
+          <TouchableOpacity 
+            style={styles.statCard}
+            onPress={() => navigation.navigate('Home')}
+            activeOpacity={0.7}
+          >
             <Text style={styles.statNumber}>{statistics?.totalFoodItems || 0}</Text>
             <Text style={styles.statLabel}>등록된 음식</Text>
-          </Card>
-          <Card style={styles.statCard}>
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={styles.statCard}
+            onPress={() => navigation.navigate('Home', { filter: 'expiring' })}
+            activeOpacity={0.7}
+          >
             <Text style={styles.statNumber}>{statistics?.expiringSoonItems || 0}</Text>
             <Text style={styles.statLabel}>유통기한 임박</Text>
-          </Card>
-          <Card style={styles.statCard}>
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={styles.statCard}
+            onPress={() => navigation.navigate('Home', { screen: 'NotificationHistory' })}
+            activeOpacity={0.7}
+          >
             <Text style={styles.statNumber}>{statistics?.notificationsSent || 0}</Text>
             <Text style={styles.statLabel}>이번 주 알림</Text>
-          </Card>
+          </TouchableOpacity>
         </View>
 
         {/* 설정 메뉴 */}
@@ -259,7 +273,7 @@ export default function ProfileScreen() {
           />
           <Divider />
           <ListItem
-            onPress={() => navigation.navigate('Settings', { screen: 'StatisticsReport' })}
+            onPress={() => navigation.navigate('Home', { screen: 'StatisticsReport' })}
             icon="analytics"
             title="사용 통계"
             subtitle="앱 사용 현황을 확인하세요"
@@ -267,7 +281,7 @@ export default function ProfileScreen() {
           />
           <Divider />
           <ListItem
-            onPress={() => navigation.navigate('Settings', { screen: 'NotificationHistory' })}
+            onPress={() => navigation.navigate('Home', { screen: 'NotificationHistory' })}
             icon="time"
             title="알림 히스토리"
             subtitle="받은 알림들을 확인하세요"
@@ -409,6 +423,9 @@ const styles = StyleSheet.create({
     marginHorizontal: Theme.spacing.xs,
     padding: Theme.spacing.md,
     alignItems: 'center',
+    backgroundColor: Colors.surface,
+    borderRadius: Theme.borderRadius.lg,
+    ...Theme.shadows.small,
   },
   statNumber: {
     fontSize: Theme.typography.h2.fontSize,
