@@ -24,6 +24,7 @@ import { useFocusEffect } from '@react-navigation/native';
 
 export default function StatisticsReportScreen() {
   const [statistics, setStatistics] = useState(null);
+  const [weeklyData, setWeeklyData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedPeriod, setSelectedPeriod] = useState('week'); // week, month, year
@@ -43,8 +44,12 @@ export default function StatisticsReportScreen() {
   const loadStatistics = async () => {
     try {
       setLoading(true);
-      const stats = await StatisticsService.loadStatistics();
+      const [stats, weekly] = await Promise.all([
+        StatisticsService.getRealtimeFullStatistics(),
+        StatisticsService.getWeeklyFoodAddedData()
+      ]);
       setStatistics(stats);
+      setWeeklyData(weekly);
     } catch (error) {
       console.error('통계 로드 실패:', error);
       Alert.alert('오류', '통계 데이터를 불러오는데 실패했습니다.');
@@ -62,7 +67,7 @@ export default function StatisticsReportScreen() {
   const resetStatistics = () => {
     Alert.alert(
       '통계 초기화',
-      '모든 통계 데이터가 삭제됩니다. 정말 초기화하시겠습니까?',
+      '로컬 통계 데이터만 삭제됩니다. 실제 음식 데이터는 그대로 유지됩니다. 정말 초기화하시겠습니까?',
       [
         { text: '취소', style: 'cancel' },
         { 
@@ -72,7 +77,7 @@ export default function StatisticsReportScreen() {
             try {
               await StatisticsService.resetStatistics();
               await loadStatistics();
-              Alert.alert('완료', '통계가 초기화되었습니다.');
+              Alert.alert('완료', '로컬 통계가 초기화되었습니다. 실제 음식 데이터는 그대로 유지됩니다.');
             } catch (error) {
               console.error('통계 초기화 실패:', error);
               Alert.alert('오류', '통계 초기화에 실패했습니다.');
@@ -97,17 +102,6 @@ export default function StatisticsReportScreen() {
     return categoryNames[category] || category;
   };
 
-  const getWeeklyData = () => {
-    if (!statistics) return [];
-    
-    const days = ['월', '화', '수', '목', '금', '토', '일'];
-    // 실제 데이터가 없으므로 임시로 랜덤 데이터 생성
-    // 나중에 실제 주간 데이터를 저장하는 기능을 추가할 수 있음
-    return days.map((day, index) => ({
-      label: day,
-      value: Math.floor(Math.random() * 5) + 1,
-    }));
-  };
 
   const getCategoryData = () => {
     if (!statistics) return [];
@@ -202,28 +196,24 @@ export default function StatisticsReportScreen() {
               title="총 등록 음식"
               value={statistics?.totalFoodItems || 0}
               subtitle="개"
-              icon={<Ionicons name="restaurant" size={16} color={Colors.primary} />}
               color={Colors.primary}
             />
             <StatCard
               title="유통기한 임박"
               value={statistics?.expiringSoonItems || 0}
               subtitle="개"
-              icon={<Ionicons name="warning" size={16} color={Colors.warning} />}
               color={Colors.warning}
             />
             <StatCard
               title="만료된 음식"
               value={statistics?.expiredItems || 0}
               subtitle="개"
-              icon={<Ionicons name="close-circle" size={16} color={Colors.danger} />}
               color={Colors.danger}
             />
             <StatCard
               title="이번 주 추가"
               value={statistics?.weeklyStats?.foodAdded || 0}
               subtitle="개"
-              icon={<Ionicons name="add-circle" size={16} color={Colors.success} />}
               color={Colors.success}
             />
           </View>
@@ -234,13 +224,10 @@ export default function StatisticsReportScreen() {
           <PieChart
             data={getCategoryData()}
             title="등록된 음식 카테고리"
-            size={180}
           />
-          {getCategoryData().length === 0 && (
+          {(getCategoryData()?.length || 0) === 0 && (
             <View style={styles.emptyState}>
-              <Ionicons name="pie-chart" size={48} color={Colors.textSecondary} />
               <Text style={styles.emptyStateText}>아직 등록된 음식이 없습니다</Text>
-              <Text style={styles.emptyStateSubtext}>음식을 추가하면 통계가 표시됩니다</Text>
             </View>
           )}
         </StatSection>
@@ -249,33 +236,14 @@ export default function StatisticsReportScreen() {
         {selectedPeriod === 'week' && (
           <StatSection title="주간 활동">
             <BarChart
-              data={getWeeklyData()}
+              data={weeklyData}
               title="요일별 음식 추가"
-              height={200}
+              height={180}
               barColor={Colors.primary}
             />
           </StatSection>
         )}
 
-        {/* 알림 통계 */}
-        <StatSection title="알림 통계">
-          <View style={styles.notificationStats}>
-            <StatCard
-              title="전송된 알림"
-              value={statistics?.notificationsSent || 0}
-              subtitle="개"
-              icon={<Ionicons name="send" size={16} color={Colors.info} />}
-              color={Colors.info}
-            />
-            <StatCard
-              title="수신된 알림"
-              value={statistics?.notificationsReceived || 0}
-              subtitle="개"
-              icon={<Ionicons name="notifications" size={16} color={Colors.success} />}
-              color={Colors.success}
-            />
-          </View>
-        </StatSection>
 
         {/* 월간 통계 */}
         {selectedPeriod === 'month' && (
@@ -307,12 +275,6 @@ export default function StatisticsReportScreen() {
                 subtitle="개"
                 color={Colors.primary}
               />
-              <StatCard
-                title="올해 총 알림"
-                value={statistics?.notificationsSent || 0}
-                subtitle="개"
-                color={Colors.info}
-              />
             </View>
           </StatSection>
         )}
@@ -330,7 +292,7 @@ export default function StatisticsReportScreen() {
             }
           </Text>
           <Text style={styles.updateInfoText}>
-            통계는 음식 등록, 삭제, 알림 등의 활동을 기반으로 자동으로 수집됩니다.
+            통계는 실제 음식 데이터를 기반으로 실시간으로 계산됩니다.
           </Text>
         </Card>
 
@@ -397,11 +359,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
 
-  // 알림 통계
-  notificationStats: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
 
   // 월간 통계
   monthlyStats: {

@@ -77,15 +77,15 @@ export async function dedupeRecipesByName() {
   }
   const deletions = [];
   for (const [, items] of groups) {
-    if (items.length <= 1) continue;
+    if ((items?.length || 0) <= 1) continue;
     items.sort((a, b) => {
       const at = a.createdAt?.toMillis?.() ? a.createdAt.toMillis() : 0;
       const bt = b.createdAt?.toMillis?.() ? b.createdAt.toMillis() : 0;
       return bt - at;
     });
-    for (let i = 1; i < items.length; i++) deletions.push(deleteDoc(items[i].ref));
+    for (let i = 1; i < (items?.length || 0); i++) deletions.push(deleteDoc(items[i].ref));
   }
-  if (deletions.length) await Promise.all(deletions);
+  if ((deletions?.length || 0)) await Promise.all(deletions);
 }
 
 

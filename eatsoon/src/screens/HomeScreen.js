@@ -7,9 +7,12 @@ import { loadFoodItemsFromFirestore } from '../utils/firebaseStorage';
 import { scheduleExpiryNotification, scheduleStockNotification } from '../utils/notifications';
 import StatisticsService from '../services/statisticsService';
 
-const HomeScreen = () => {
+const HomeScreen = ({ route }) => {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const { user } = useAuth();
+  
+  // 프로필에서 전달된 필터 파라미터
+  const initialFilter = route?.params?.filter || null;
 
   // 화면이 포커스될 때마다 목록 새로고침
   useFocusEffect(
@@ -25,7 +28,7 @@ const HomeScreen = () => {
 
   const initializeNotifications = async () => {
     try {
-      const foodItems = await loadFoodItemsFromFirestore();
+      const foodItems = await loadFoodItemsFromFirestore() || [];
       
       let expiringSoonCount = 0;
       let expiredCount = 0;
@@ -74,6 +77,7 @@ const HomeScreen = () => {
         <FoodItemList 
           onItemDeleted={handleItemDeleted}
           refreshTrigger={refreshTrigger}
+          initialFilter={initialFilter}
         />
     </Container>
   );

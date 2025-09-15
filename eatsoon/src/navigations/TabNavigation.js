@@ -3,7 +3,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons'; // 이거 꼭 import 되어 있어야 함!
 import { Colors } from '../utils/colors';
 
-import HomeScreen from '../screens/HomeScreen';
+import HomeStack from './HomeStack';
 import ProfileStack from './ProfileStack';
 import SettingsStack from './SettingsStack'; // 새 이름으로 불러오기
 
@@ -31,7 +31,7 @@ export default function TabNavigation() {
     >
       <Tab.Screen
         name="Home"
-        component={HomeScreen}
+        component={HomeStack}
         options={{
           title: '음식 재고 목록',
           headerStyle: {

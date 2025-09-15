@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getAuth } from 'firebase/auth';
+import { loadFoodItemsFromFirestore } from '../utils/firebaseStorage';
 
 const STATISTICS_KEY = 'user_statistics';
 
@@ -252,7 +253,221 @@ class StatisticsService {
     }
   }
 
-  // 통계 요약 데이터 가져오기
+  // 실제 Firestore 데이터를 기반으로 통계 계산
+  async getRealtimeSummary() {
+    try {
+      const foodItems = await loadFoodItemsFromFirestore();
+      const now = new Date();
+      
+      // 유통기한 임박 및 만료된 아이템 계산
+      let expiringSoonItems = 0;
+      let expiredItems = 0;
+      
+      foodItems.forEach(item => {
+        if (item.expirationDate) {
+          const expiryDate = new Date(item.expirationDate);
+          const diffTime = expiryDate - now;
+          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+          
+          if (diffDays <= 3 && diffDays >= 0) {
+            expiringSoonItems += 1;
+          } else if (diffDays < 0) {
+            expiredItems += 1;
+          }
+        }
+      });
+      
+      // 이번 주 알림 수 (로컬 통계에서 가져오기)
+      const statistics = await this.loadStatistics();
+      
+      return {
+        totalFoodItems: foodItems.length,
+        expiringSoonItems: expiringSoonItems,
+        expiredItems: expiredItems,
+        notificationsSent: statistics.weeklyStats.notificationsSent || 0,
+        notificationsReceived: statistics.notificationsReceived || 0,
+        weeklyFoodAdded: statistics.weeklyStats.foodAdded || 0,
+        monthlyFoodAdded: statistics.monthlyStats.foodAdded || 0,
+        mostAddedCategory: statistics.monthlyStats.mostAddedCategory || '',
+      };
+    } catch (error) {
+      console.error('실시간 통계 계산 실패:', error);
+      return {
+        totalFoodItems: 0,
+        expiringSoonItems: 0,
+        expiredItems: 0,
+        notificationsSent: 0,
+        notificationsReceived: 0,
+        weeklyFoodAdded: 0,
+        monthlyFoodAdded: 0,
+        mostAddedCategory: '',
+      };
+    }
+  }
+
+  // 실제 Firestore 데이터를 기반으로 완전한 통계 계산
+  async getRealtimeFullStatistics() {
+    try {
+      const foodItems = await loadFoodItemsFromFirestore();
+      const now = new Date();
+      
+      // 기본 통계 계산
+      const totalFoodItems = foodItems.length;
+      let expiringSoonItems = 0;
+      let expiredItems = 0;
+      let weeklyFoodAdded = 0;
+      let monthlyFoodAdded = 0;
+      
+      // 이번 주와 이번 달 시작 날짜 계산
+      const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      
+      foodItems.forEach(item => {
+        // 유통기한 임박 (3일 이내) 및 만료된 아이템 계산
+        if (item.expirationDate) {
+          const expiryDate = new Date(item.expirationDate);
+          const diffTime = expiryDate - now;
+          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+          
+          if (diffDays <= 3 && diffDays >= 0) {
+            expiringSoonItems += 1;
+          } else if (diffDays < 0) {
+            expiredItems += 1;
+          }
+        }
+        
+        // 이번 주/달 추가된 음식 계산
+        if (item.createdAt) {
+          const createdDate = new Date(item.createdAt);
+          if (createdDate >= weekAgo) {
+            weeklyFoodAdded += 1;
+          }
+          if (createdDate >= monthAgo) {
+            monthlyFoodAdded += 1;
+          }
+        }
+      });
+      
+      // 카테고리별 분포 계산
+      const categories = {
+        dairy: 0,
+        meat: 0,
+        vegetables: 0,
+        fruits: 0,
+        grains: 0,
+        beverages: 0,
+        snacks: 0,
+        others: 0,
+      };
+      
+      foodItems.forEach(item => {
+        const categoryKey = this.getCategoryKey(item.category);
+        if (categories[categoryKey] !== undefined) {
+          categories[categoryKey] += 1;
+        } else {
+          categories.others += 1;
+        }
+      });
+      
+      // 가장 많이 추가된 카테고리 찾기
+      const mostAddedCategory = Object.entries(categories).reduce((a, b) => 
+        categories[a[0]] > categories[b[0]] ? a : b
+      )[0];
+      
+      // 로컬 통계에서 알림 관련 데이터 가져오기
+      const localStats = await this.loadStatistics();
+      
+      return {
+        totalFoodItems,
+        expiringSoonItems,
+        expiredItems,
+        notificationsSent: localStats.notificationsSent || 0,
+        notificationsReceived: localStats.notificationsReceived || 0,
+        weeklyStats: {
+          foodAdded: weeklyFoodAdded,
+          foodConsumed: 0, // 소비 데이터는 별도 추적 필요
+          notificationsSent: localStats.weeklyStats?.notificationsSent || 0,
+        },
+        monthlyStats: {
+          foodAdded: monthlyFoodAdded,
+          foodConsumed: 0, // 소비 데이터는 별도 추적 필요
+          notificationsSent: localStats.monthlyStats?.notificationsSent || 0,
+          mostAddedCategory,
+        },
+        categories,
+        lastUpdated: new Date().toISOString(),
+      };
+    } catch (error) {
+      console.error('실시간 전체 통계 계산 실패:', error);
+      return defaultStatistics;
+    }
+  }
+
+  // 카테고리 키 변환 함수
+  getCategoryKey(category) {
+    const categoryMap = {
+      '유제품': 'dairy',
+      '육류': 'meat',
+      '채소': 'vegetables',
+      '과일': 'fruits',
+      '곡물': 'grains',
+      '음료': 'beverages',
+      '간식': 'snacks',
+    };
+    return categoryMap[category] || 'others';
+  }
+
+  // 요일별 음식 추가 데이터 계산
+  async getWeeklyFoodAddedData() {
+    try {
+      const foodItems = await loadFoodItemsFromFirestore();
+      const now = new Date();
+      
+      // 이번 주 월요일부터 일요일까지의 날짜 범위 계산
+      const monday = new Date(now);
+      monday.setDate(now.getDate() - now.getDay() + 1); // 월요일
+      monday.setHours(0, 0, 0, 0);
+      
+      const sunday = new Date(monday);
+      sunday.setDate(monday.getDate() + 6); // 일요일
+      sunday.setHours(23, 59, 59, 999);
+      
+      const days = ['월', '화', '수', '목', '금', '토', '일'];
+      const weeklyData = [];
+      
+      for (let i = 0; i < 7; i++) {
+        const dayStart = new Date(monday);
+        dayStart.setDate(monday.getDate() + i);
+        dayStart.setHours(0, 0, 0, 0);
+        
+        const dayEnd = new Date(dayStart);
+        dayEnd.setHours(23, 59, 59, 999);
+        
+        // 해당 요일에 추가된 음식 수 계산
+        const dayFoodCount = foodItems.filter(item => {
+          if (!item.createdAt) return false;
+          const createdDate = new Date(item.createdAt);
+          return createdDate >= dayStart && createdDate <= dayEnd;
+        }).length;
+        
+        weeklyData.push({
+          label: days[i],
+          value: dayFoodCount,
+        });
+      }
+      
+      return weeklyData;
+    } catch (error) {
+      console.error('요일별 데이터 계산 실패:', error);
+      // 오류 시 빈 데이터 반환
+      return ['월', '화', '수', '목', '금', '토', '일'].map(day => ({
+        label: day,
+        value: 0,
+      }));
+    }
+  }
+
+  // 통계 요약 데이터 가져오기 (기존 함수 유지)
   async getSummary() {
     try {
       const statistics = await this.loadStatistics();

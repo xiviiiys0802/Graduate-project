@@ -67,7 +67,7 @@ export default function ProfileEditScreen() {
     // 이름 검증
     if (!formData.displayName.trim()) {
       newErrors.displayName = '이름을 입력해주세요';
-    } else if (formData.displayName.length < 2) {
+    } else if ((formData.displayName?.length || 0) < 2) {
       newErrors.displayName = '이름은 2자 이상이어야 합니다';
     }
 
@@ -84,7 +84,7 @@ export default function ProfileEditScreen() {
       if (!formData.currentPassword) {
         newErrors.currentPassword = '현재 비밀번호를 입력해주세요';
       }
-      if (formData.newPassword && formData.newPassword.length < 6) {
+      if (formData.newPassword && (formData.newPassword?.length || 0) < 6) {
         newErrors.newPassword = '비밀번호는 6자 이상이어야 합니다';
       }
       if (formData.newPassword !== formData.confirmPassword) {
@@ -93,7 +93,7 @@ export default function ProfileEditScreen() {
     }
 
     setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    return (Object.keys(newErrors)?.length || 0) === 0;
   };
 
   const handleSave = async () => {

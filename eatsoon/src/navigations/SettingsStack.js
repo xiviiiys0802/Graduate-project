@@ -23,24 +23,23 @@ export default function SettingsStack() {
       <Stack.Screen 
         name="More" 
         component={MoreScreen}
-        options={{ 
-          title: '더보기',
-          headerStyle: {
-            backgroundColor: '#f8f9fa',
-          },
-          headerTintColor: '#333',
-          headerTitleStyle: {
-            fontWeight: '600',
-          },
-        }}
+        options={{ headerShown: false }}
       />
-      <Stack.Screen name="RecipeRecommendation" component={RecipeRecommendationScreen} />
+      <Stack.Screen 
+        name="RecipeRecommendation" 
+        component={RecipeRecommendationScreen}
+        options={{ headerShown: false }}
+      />
       <Stack.Screen 
         name="RecipeDetail" 
         component={RecipeDetailScreen}
         options={{ headerShown: false }}
       />
-      <Stack.Screen name="ShoppingList" component={ShoppingListScreen} />
+      <Stack.Screen 
+        name="ShoppingList" 
+        component={ShoppingListScreen}
+        options={{ headerShown: false }}
+      />
       <Stack.Screen 
         name="ProfileEdit" 
         component={ProfileEditScreen}

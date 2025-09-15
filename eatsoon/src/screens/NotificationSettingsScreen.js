@@ -24,17 +24,24 @@ import {
 
 export default function NotificationSettingsScreen() {
   const [settings, setSettings] = useState({
-    expiryEnabled: true,
-    stockEnabled: true,
+    expiryEnabled: false,
+    stockEnabled: false,
     dailyEnabled: false,
     expiryDays: [3, 1, 0], // 3일 전, 1일 전, 당일
-    dailyTime: '09:00' // 오전 9시
+    dailyTime: '09:00', // 오전 9시
+    stockThreshold: 2, // 재고 부족 임계값
+    smartThreshold: 5, // 스마트 알림 임계값
+    quietHours: { start: '22:00', end: '08:00' }, // 방해 금지 시간
   });
   const [loading, setLoading] = useState(true);
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [showExpiryPicker, setShowExpiryPicker] = useState(false);
+  const [showThresholdPicker, setShowThresholdPicker] = useState(false);
+  const [showPriorityPicker, setShowPriorityPicker] = useState(false);
   const [tempTime, setTempTime] = useState('09:00');
   const [tempExpiryDays, setTempExpiryDays] = useState([3, 1, 0]);
+  const [tempThreshold, setTempThreshold] = useState(2);
+  const [tempPriority, setTempPriority] = useState('normal');
   const navigation = useNavigation();
 
   useEffect(() => {
@@ -137,8 +144,45 @@ export default function NotificationSettingsScreen() {
   };
 
   const formatExpiryDays = (days) => {
-    if (days.length === 0) return '설정되지 않음';
+    if ((days?.length || 0) === 0) return '설정되지 않음';
     return days.map(day => `${day}일 전`).join(', ');
+  };
+
+  const getPriorityDisplayName = (priority) => {
+    switch (priority) {
+      case 'urgent': return '긴급 (모든 알림)';
+      case 'normal': return '일반 (중요한 알림만)';
+      case 'silent': return '조용함 (알림 없음)';
+      default: return '일반';
+    }
+  };
+
+  const handleThresholdChange = async (threshold) => {
+    const newSettings = { ...settings, stockThreshold: threshold };
+    setSettings(newSettings);
+    setTempThreshold(threshold);
+    
+    try {
+      await saveNotificationSettings(newSettings);
+      Alert.alert('알림 설정', `재고 부족 임계값이 ${threshold}개로 변경되었습니다.`);
+    } catch (error) {
+      console.error('임계값 설정 저장 실패:', error);
+      Alert.alert('오류', '임계값 설정 저장에 실패했습니다.');
+    }
+  };
+
+  const handlePriorityChange = async (priority) => {
+    const newSettings = { ...settings, priorityMode: priority };
+    setSettings(newSettings);
+    setTempPriority(priority);
+    
+    try {
+      await saveNotificationSettings(newSettings);
+      Alert.alert('알림 설정', `알림 우선순위가 ${getPriorityDisplayName(priority)}로 변경되었습니다.`);
+    } catch (error) {
+      console.error('우선순위 설정 저장 실패:', error);
+      Alert.alert('오류', '우선순위 설정 저장에 실패했습니다.');
+    }
   };
 
   if (loading) {
@@ -232,6 +276,50 @@ export default function NotificationSettingsScreen() {
               thumbColor={settings.dailyEnabled ? Colors.primary : Colors.textSecondary}
             />
           </View>
+          
+          <Divider />
+          
+          <View style={styles.settingItem}>
+            <View style={styles.settingInfo}>
+              <IconContainer>
+                <Ionicons name="bulb" size={20} color={Colors.success} />
+              </IconContainer>
+              <View style={styles.settingText}>
+                <Text style={styles.label}>스마트 알림</Text>
+                <Text style={styles.description}>
+                  AI가 분석한 최적의 요리 시점과 음식 조합을 추천합니다
+                </Text>
+              </View>
+            </View>
+            <Switch
+              value={settings.smartEnabled}
+              onValueChange={(value) => handleSettingChange('smartEnabled', value)}
+              trackColor={{ false: Colors.border, true: Colors.primary + '40' }}
+              thumbColor={settings.smartEnabled ? Colors.primary : Colors.textSecondary}
+            />
+          </View>
+          
+          <Divider />
+          
+          <View style={styles.settingItem}>
+            <View style={styles.settingInfo}>
+              <IconContainer>
+                <Ionicons name="restaurant" size={20} color={Colors.warning} />
+              </IconContainer>
+              <View style={styles.settingText}>
+                <Text style={styles.label}>요리 추천 알림</Text>
+                <Text style={styles.description}>
+                  보유한 재료로 만들 수 있는 요리법을 추천합니다
+                </Text>
+              </View>
+            </View>
+            <Switch
+              value={settings.recipeEnabled}
+              onValueChange={(value) => handleSettingChange('recipeEnabled', value)}
+              trackColor={{ false: Colors.border, true: Colors.primary + '40' }}
+              thumbColor={settings.recipeEnabled ? Colors.primary : Colors.textSecondary}
+            />
+          </View>
         </Card>
 
         {/* 알림 설정 */}
@@ -251,6 +339,71 @@ export default function NotificationSettingsScreen() {
             icon="time"
             title="정기 알림 시간"
             subtitle={`매일 ${formatTime(settings.dailyTime)}에 알림`}
+            rightIcon="chevron-forward"
+          />
+          <Divider />
+          <ListItem
+            onPress={() => setShowThresholdPicker(true)}
+            icon="cube"
+            title="재고 부족 임계값"
+            subtitle={`${settings.stockThreshold}개 이하일 때 알림`}
+            rightIcon="chevron-forward"
+          />
+        </Card>
+
+        {/* 고급 설정 */}
+        <SectionHeader>고급 설정</SectionHeader>
+        
+        <Card style={styles.menuCard}>
+          <View style={styles.settingItem}>
+            <View style={styles.settingInfo}>
+              <IconContainer>
+                <Ionicons name="volume-high" size={20} color={Colors.textSecondary} />
+              </IconContainer>
+              <View style={styles.settingText}>
+                <Text style={styles.label}>알림 소리</Text>
+                <Text style={styles.description}>
+                  알림이 올 때 소리를 재생합니다
+                </Text>
+              </View>
+            </View>
+            <Switch
+              value={settings.soundEnabled}
+              onValueChange={(value) => handleSettingChange('soundEnabled', value)}
+              trackColor={{ false: Colors.border, true: Colors.primary + '40' }}
+              thumbColor={settings.soundEnabled ? Colors.primary : Colors.textSecondary}
+            />
+          </View>
+          
+          <Divider />
+          
+          <View style={styles.settingItem}>
+            <View style={styles.settingInfo}>
+              <IconContainer>
+                <Ionicons name="phone-portrait" size={20} color={Colors.textSecondary} />
+              </IconContainer>
+              <View style={styles.settingText}>
+                <Text style={styles.label}>진동</Text>
+                <Text style={styles.description}>
+                  알림이 올 때 진동을 울립니다
+                </Text>
+              </View>
+            </View>
+            <Switch
+              value={settings.vibrationEnabled}
+              onValueChange={(value) => handleSettingChange('vibrationEnabled', value)}
+              trackColor={{ false: Colors.border, true: Colors.primary + '40' }}
+              thumbColor={settings.vibrationEnabled ? Colors.primary : Colors.textSecondary}
+            />
+          </View>
+          
+          <Divider />
+          
+          <ListItem
+            onPress={() => setShowPriorityPicker(true)}
+            icon="flag"
+            title="알림 우선순위"
+            subtitle={getPriorityDisplayName(settings.priorityMode)}
             rightIcon="chevron-forward"
           />
         </Card>
@@ -376,7 +529,123 @@ export default function NotificationSettingsScreen() {
             </View>
           </View>
         </View>
-            </Modal>
+      </Modal>
+
+      {/* 임계값 선택 모달 */}
+      <Modal
+        visible={showThresholdPicker}
+        transparent={true}
+        animationType="slide"
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>재고 부족 임계값 설정</Text>
+            
+            <View style={styles.thresholdOptions}>
+              {[1, 2, 3, 4, 5].map((threshold) => (
+                <TouchableOpacity
+                  key={threshold}
+                  style={[
+                    styles.thresholdOption,
+                    tempThreshold === threshold && styles.thresholdOptionSelected
+                  ]}
+                  onPress={() => setTempThreshold(threshold)}
+                >
+                  <Text style={[
+                    styles.thresholdOptionText,
+                    tempThreshold === threshold && styles.thresholdOptionTextSelected
+                  ]}>
+                    {threshold}개 이하
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            
+            <View style={styles.modalButtons}>
+              <TouchableOpacity 
+                style={[styles.modalButton, styles.cancelButton]} 
+                onPress={() => setShowThresholdPicker(false)}
+              >
+                <Text style={styles.cancelButtonText}>취소</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={[styles.modalButton, styles.confirmButton]} 
+                onPress={() => {
+                  handleThresholdChange(tempThreshold);
+                  setShowThresholdPicker(false);
+                }}
+              >
+                <Text style={styles.confirmButtonText}>확인</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* 우선순위 선택 모달 */}
+      <Modal
+        visible={showPriorityPicker}
+        transparent={true}
+        animationType="slide"
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>알림 우선순위 설정</Text>
+            
+            <View style={styles.priorityOptions}>
+              {[
+                { value: 'urgent', label: '긴급', description: '모든 알림을 받습니다' },
+                { value: 'normal', label: '일반', description: '중요한 알림만 받습니다' },
+                { value: 'silent', label: '조용함', description: '알림을 받지 않습니다' }
+              ].map((priority) => (
+                <TouchableOpacity
+                  key={priority.value}
+                  style={[
+                    styles.priorityOption,
+                    tempPriority === priority.value && styles.priorityOptionSelected
+                  ]}
+                  onPress={() => setTempPriority(priority.value)}
+                >
+                  <View style={styles.priorityOptionContent}>
+                    <Text style={[
+                      styles.priorityOptionText,
+                      tempPriority === priority.value && styles.priorityOptionTextSelected
+                    ]}>
+                      {priority.label}
+                    </Text>
+                    <Text style={[
+                      styles.priorityOptionDescription,
+                      tempPriority === priority.value && styles.priorityOptionDescriptionSelected
+                    ]}>
+                      {priority.description}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
+            
+            <View style={styles.modalButtons}>
+              <TouchableOpacity 
+                style={[styles.modalButton, styles.cancelButton]} 
+                onPress={() => setShowPriorityPicker(false)}
+              >
+                <Text style={styles.cancelButtonText}>취소</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={[styles.modalButton, styles.confirmButton]} 
+                onPress={() => {
+                  handlePriorityChange(tempPriority);
+                  setShowPriorityPicker(false);
+                }}
+              >
+                <Text style={styles.confirmButtonText}>확인</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </Container>
   );
 }
@@ -546,5 +815,69 @@ const styles = StyleSheet.create({
   expiryOptionTextSelected: {
     color: Colors.white,
     fontWeight: '500',
+  },
+  thresholdOptions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    marginVertical: Theme.spacing.lg,
+  },
+  thresholdOption: {
+    width: '18%',
+    paddingVertical: Theme.spacing.md,
+    paddingHorizontal: Theme.spacing.sm,
+    borderRadius: Theme.borderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    alignItems: 'center',
+    marginBottom: Theme.spacing.sm,
+    backgroundColor: Colors.surface,
+  },
+  thresholdOptionSelected: {
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
+  },
+  thresholdOptionText: {
+    fontSize: Theme.typography.small.fontSize,
+    color: Colors.textPrimary,
+  },
+  thresholdOptionTextSelected: {
+    color: Colors.white,
+    fontWeight: '500',
+  },
+  priorityOptions: {
+    marginVertical: Theme.spacing.lg,
+  },
+  priorityOption: {
+    paddingVertical: Theme.spacing.md,
+    paddingHorizontal: Theme.spacing.lg,
+    borderRadius: Theme.borderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    marginBottom: Theme.spacing.sm,
+    backgroundColor: Colors.surface,
+  },
+  priorityOptionSelected: {
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
+  },
+  priorityOptionContent: {
+    alignItems: 'center',
+  },
+  priorityOptionText: {
+    fontSize: Theme.typography.body.fontSize,
+    color: Colors.textPrimary,
+    fontWeight: '500',
+  },
+  priorityOptionTextSelected: {
+    color: Colors.white,
+  },
+  priorityOptionDescription: {
+    fontSize: Theme.typography.small.fontSize,
+    color: Colors.textSecondary,
+    marginTop: Theme.spacing.xs,
+  },
+  priorityOptionDescriptionSelected: {
+    color: Colors.white + 'CC',
   },
 });

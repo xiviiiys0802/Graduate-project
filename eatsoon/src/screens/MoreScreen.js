@@ -3,7 +3,6 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, FlatList, ActivityIndicator, TextInput, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../config/firebase';
 import { subscribePantry, fetchRecipesOnce, seedRecipesIfEmpty, dedupeRecipesByName } from '../services/firestore';
 import { recommendRecipes } from '../utils/recommendation';
@@ -11,15 +10,11 @@ import { addItem, toggleCheck, updateItem, deleteItem, listAll } from '../utils/
 
 export default function MoreScreen() {
   const navigation = useNavigation();
-  const [activeTab, setActiveTab] = useState('recipe'); // 'recipe' or 'shopping'
-  
-  // 레시피 추천 관련 상태
+  const [activeTab, setActiveTab] = useState('recipe');
   const [loading, setLoading] = useState(true);
   const [pantry, setPantry] = useState([]);
   const [recipes, setRecipes] = useState([]);
   const [sortBy, setSortBy] = useState('all'); // 'all', 'expiring', 'available'
-  
-  // 장보기 리스트 관련 상태
   const [shoppingItems, setShoppingItems] = useState([]);
   const [newItemName, setNewItemName] = useState('');
   const [shoppingLoading, setShoppingLoading] = useState(true);
@@ -27,10 +22,9 @@ export default function MoreScreen() {
 
   // 레시피 추천 데이터 로드
   useEffect(() => {
-    let unsubAuth;
-    let unsubPantry;
-
-    unsubAuth = onAuthStateChanged(auth, async (user) => {
+    let unsubAuth, unsubPantry;
+    
+    unsubAuth = auth.onAuthStateChanged(async (user) => {
       if (!user) {
         setPantry([]); 
         setRecipes([]); 
@@ -204,13 +198,17 @@ export default function MoreScreen() {
     try {
       await toggleCheck(itemId);
     } catch (error) {
-      Alert.alert('오류', '상태 변경에 실패했습니다.');
+      Alert.alert('오류', '체크 상태 변경에 실패했습니다.');
     }
   };
 
   // 장보기 리스트 수량 변경
-  const handleUpdateQuantity = async (itemId, currentQuantity, delta) => {
-    const newQuantity = Math.max(1, currentQuantity + delta);
+  const handleQuantityChange = async (itemId, newQuantity) => {
+    if (newQuantity <= 0) {
+      await handleDeleteItem(itemId);
+      return;
+    }
+    
     try {
       await updateItem(itemId, { quantity: newQuantity });
     } catch (error) {
@@ -218,26 +216,13 @@ export default function MoreScreen() {
     }
   };
 
-  // 장보기 리스트 삭제
+  // 장보기 리스트 항목 삭제
   const handleDeleteItem = async (itemId) => {
-    Alert.alert(
-      '삭제 확인',
-      '이 항목을 삭제하시겠습니까?',
-      [
-        { text: '취소', style: 'cancel' },
-        {
-          text: '삭제',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await deleteItem(itemId);
-            } catch (error) {
-              Alert.alert('오류', '삭제에 실패했습니다.');
-            }
-          },
-        },
-      ]
-    );
+    try {
+      await deleteItem(itemId);
+    } catch (error) {
+      Alert.alert('오류', '항목 삭제에 실패했습니다.');
+    }
   };
 
   // 전체 선택/해제
@@ -348,7 +333,7 @@ export default function MoreScreen() {
   const renderRecipeItem = ({ item }) => (
     <View style={styles.recipeItem}>
       <View style={styles.recipeContent}>
-        <Text style={styles.recipeTitle} numberOfLines={2}>
+        <Text style={styles.recipeTitle}>
           {item.title || item.name}
         </Text>
         <Text style={styles.recipeInfo}>
@@ -413,14 +398,14 @@ export default function MoreScreen() {
       <View style={styles.shoppingActions}>
         <TouchableOpacity 
           style={styles.quantityButton}
-          onPress={() => handleUpdateQuantity(item.id, item.quantity, -1)}
+          onPress={() => handleQuantityChange(item.id, item.quantity - 1)}
         >
           <Ionicons name="remove" size={16} color="#666" />
         </TouchableOpacity>
         
         <TouchableOpacity 
           style={styles.quantityButton}
-          onPress={() => handleUpdateQuantity(item.id, item.quantity, 1)}
+          onPress={() => handleQuantityChange(item.id, item.quantity + 1)}
         >
           <Ionicons name="add" size={16} color="#666" />
         </TouchableOpacity>
@@ -429,16 +414,17 @@ export default function MoreScreen() {
           style={styles.deleteButton}
           onPress={() => handleDeleteItem(item.id)}
         >
-          <Ionicons name="trash-outline" size={16} color="#FF6B6B" />
+          <Ionicons name="trash" size={16} color="#FF6B6B" />
         </TouchableOpacity>
       </View>
     </View>
   );
 
   return (
-    <ScrollView style={styles.container}>
-      {/* 상단 여백 */}
-      <View style={styles.topSpacing} />
+    <View style={styles.container}>
+      {/* 헤더 */}
+      <View style={styles.header}>
+      </View>
       
       {/* 탭 버튼 */}
       <View style={styles.tabContainer}>
@@ -463,7 +449,6 @@ export default function MoreScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* 레시피 추천 탭 */}
       {activeTab === 'recipe' && (
         <View style={styles.tabContent}>
           {/* 정렬 버튼들 */}
@@ -511,29 +496,31 @@ export default function MoreScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* 레시피 목록 */}
           {loading ? (
             <ActivityIndicator size="large" color="#FF6B6B" style={styles.loading} />
           ) : (
             <FlatList
               data={rankedRecipes}
-              keyExtractor={(item) => item.id}
               renderItem={renderRecipeItem}
-              scrollEnabled={false}
+              keyExtractor={(item) => item.id}
               style={styles.recipeList}
+              ListEmptyComponent={
+                <View style={styles.emptyContainer}>
+                  <Text style={styles.emptyText}>추천할 레시피가 없습니다.</Text>
+                </View>
+              }
             />
           )}
         </View>
       )}
 
-      {/* 장보기 리스트 탭 */}
       {activeTab === 'shopping' && (
         <View style={styles.tabContent}>
-          {/* 새 항목 추가 */}
+          {/* 항목 추가 */}
           <View style={styles.addItemContainer}>
             <TextInput
               style={styles.addItemInput}
-              placeholder="새 항목 추가..."
+              placeholder="장보기 항목 추가..."
               value={newItemName}
               onChangeText={setNewItemName}
               onSubmitEditing={handleAddItem}
@@ -593,10 +580,14 @@ export default function MoreScreen() {
           ) : (
             <FlatList
               data={shoppingItems}
-              keyExtractor={(item) => item.id}
               renderItem={renderShoppingItem}
-              scrollEnabled={false}
+              keyExtractor={(item) => item.id}
               style={styles.shoppingList}
+              ListEmptyComponent={
+                <View style={styles.emptyContainer}>
+                  <Text style={styles.emptyText}>장보기 리스트가 비어있습니다.</Text>
+                </View>
+              }
             />
           )}
         </View>
@@ -605,22 +596,36 @@ export default function MoreScreen() {
       {/* 앱 정보 */}
       <View style={styles.infoContainer}>
         <View style={styles.infoItem}>
-          <Ionicons name="information-circle" size={20} color="#666" />
-          <Text style={styles.infoText}>버전 1.0.0</Text>
+          <Ionicons name="information-circle-outline" size={16} color="#666" />
+          <Text style={styles.infoText}>EatSoon v1.0.0</Text>
         </View>
         <View style={styles.infoItem}>
-          <Ionicons name="heart" size={20} color="#666" />
-          <Text style={styles.infoText}>Made with ❤️</Text>
+          <Ionicons name="person-outline" size={16} color="#666" />
+          <Text style={styles.infoText}>개발자: EatSoon Team</Text>
         </View>
       </View>
-    </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#f8f9fa',
     flex: 1,
+    backgroundColor: '#f8f9fa',
+  },
+  header: {
+    backgroundColor: '#fff',
+    paddingTop: 50,
+    paddingBottom: 20,
+    paddingHorizontal: 20,
+    marginHorizontal: 20,
+    marginTop: 20,
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
+    textAlign: 'center',
   },
   topSpacing: {
     height: 20,
@@ -668,26 +673,24 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   sortButton: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 18,
+    paddingVertical: 8,
+    borderRadius: 16,
     backgroundColor: '#fff',
     borderWidth: 1,
     borderColor: '#e0e0e0',
     gap: 4,
-    justifyContent: 'center',
   },
   sortButtonActive: {
-    backgroundColor: '#4ECDC4',
-    borderColor: '#4ECDC4',
+    backgroundColor: '#FF6B6B',
+    borderColor: '#FF6B6B',
   },
   sortButtonText: {
     fontSize: 12,
     color: '#666',
-    fontWeight: '600',
+    fontWeight: '500',
   },
   sortButtonTextActive: {
     color: '#fff',
@@ -724,7 +727,7 @@ const styles = StyleSheet.create({
   recipeButtons: {
     flexDirection: 'row',
     gap: 8,
-    flexWrap: 'wrap',
+    marginTop: 8,
   },
   recipeButton: {
     backgroundColor: '#FF6B6B',
@@ -732,7 +735,6 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 8,
     flex: 1,
-    minWidth: 100,
   },
   recipeButtonText: {
     color: '#fff',
@@ -741,18 +743,13 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   addToShoppingButton: {
-    backgroundColor: '#f8f9fa',
-    borderWidth: 1,
-    borderColor: '#4ECDC4',
+    backgroundColor: '#f0f9ff',
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 8,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    flex: 1,
-    minWidth: 100,
-    justifyContent: 'center',
   },
   addToShoppingButtonText: {
     color: '#4ECDC4',
@@ -763,42 +760,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     marginHorizontal: 20,
     marginBottom: 16,
-    gap: 8,
-  },
-  shoppingActionsContainer: {
-    marginHorizontal: 20,
-    marginBottom: 16,
-  },
-  shoppingActionButtons: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 12,
-  },
-  shoppingActionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 16,
-    backgroundColor: '#f8f9fa',
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-    gap: 4,
-  },
-  deleteActionButton: {
-    backgroundColor: '#fff5f5',
-    borderColor: '#FF6B6B',
-  },
-  shoppingActionButtonText: {
-    fontSize: 12,
-    color: '#4ECDC4',
-    fontWeight: '600',
-  },
-  deleteActionButtonText: {
-    color: '#FF6B6B',
-  },
-  sortButtonsContainer: {
-    flexDirection: 'row',
     gap: 8,
   },
   addItemInput: {
@@ -825,6 +786,42 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 3,
+  },
+  shoppingActionsContainer: {
+    marginHorizontal: 20,
+    marginBottom: 16,
+    gap: 12,
+  },
+  shoppingActionButtons: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  shoppingActionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    gap: 4,
+  },
+  deleteActionButton: {
+    backgroundColor: '#fff5f5',
+    borderColor: '#FF6B6B',
+  },
+  shoppingActionButtonText: {
+    fontSize: 12,
+    color: '#666',
+    fontWeight: '500',
+  },
+  deleteActionButtonText: {
+    color: '#FF6B6B',
+  },
+  sortButtonsContainer: {
+    flexDirection: 'row',
+    gap: 8,
   },
   shoppingList: {
     marginHorizontal: 20,
@@ -881,6 +878,15 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff5f5',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  emptyContainer: {
+    padding: 40,
+    alignItems: 'center',
+  },
+  emptyText: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
   },
   infoContainer: {
     backgroundColor: '#fff',
