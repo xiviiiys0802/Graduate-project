@@ -52,6 +52,7 @@ const FoodItemList = ({ onItemDeleted, refreshTrigger, initialFilter = null }) =
   const handleSearchBlur = useCallback(() => {
     setIsSearchFocused(false);
   }, []);
+  // 이거는 테스트 커밋입니다.
 
   // initialFilter가 'expiring'일 때 유통기한 임박 필터 적용
   useEffect(() => {
@@ -335,96 +336,6 @@ const FoodItemList = ({ onItemDeleted, refreshTrigger, initialFilter = null }) =
     }
   };
 
-<<<<<<< HEAD
-  // 보관 방법 아이콘 가져오기
-  const getStorageIcon = (storageType) => {
-    switch (storageType) {
-      case '냉장': return 'snow';
-      case '냉동': return 'snow-outline';
-      case '실온': return 'thermometer';
-      default: return 'snow';
-    }
-  };
-
-  // 보관 방법 색상 가져오기
-  const getStorageColor = (storageType) => {
-    switch (storageType) {
-      case '냉장': return '#4A90E2';
-      case '냉동': return '#7B68EE';
-      case '실온': return '#FF8C00';
-      default: return '#4A90E2';
-    }
-  };
-
-  // 헤더 컴포넌트
-  const renderHeader = () => (
-    <View style={styles.header}>
-      <View style={styles.searchContainer}>
-        <TouchableOpacity 
-          style={[styles.menuButton, isCompactView && styles.menuButtonActive]}
-          onPress={handleCompactViewToggle}
-        >
-          <Ionicons 
-            name={isCompactView ? "grid" : "grid-outline"} 
-            size={24} 
-            color={isCompactView ? "#fff" : "#333"} 
-          />
-        </TouchableOpacity>
-        <View style={styles.searchInputContainer}>
-          <TextInput
-            ref={searchInputRef}
-            style={styles.searchInput}
-            value={searchQuery}
-            onChangeText={handleSearchChange}
-            placeholder="음식명이나 카테고리로 검색..."
-            placeholderTextColor="#999"
-            returnKeyType="search"
-            autoCorrect={false}
-            autoCapitalize="none"
-            blurOnSubmit={false}
-            onSubmitEditing={() => {}}
-            onFocus={handleSearchFocus}
-            onBlur={handleSearchBlur}
-            editable={true}
-            multiline={false}
-            numberOfLines={1}
-          />
-        </View>
-      </View>
-      
-      {/* 보관 방법 필터 */}
-      <View style={styles.storageFilterSection}>
-        <View style={styles.storageFilterButtons}>
-          {['전체', '냉장', '냉동', '실온'].map((type) => (
-            <TouchableOpacity
-              key={type}
-              style={[
-                styles.storageFilterButton,
-                storageFilter === type && styles.storageFilterButtonActive
-              ]}
-              onPress={() => handleStorageFilterChange(type)}
-            >
-              <Ionicons 
-                name={type === '전체' ? 'grid' : getStorageIcon(type)} 
-                size={16} 
-                color={storageFilter === type ? Colors.textInverse : getStorageColor(type)} 
-              />
-              <Text style={[
-                styles.storageFilterButtonText,
-                storageFilter === type && styles.storageFilterButtonTextActive
-              ]}>
-                {type}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </View>
-      
-=======
-  // 헤더 컴포넌트 (버튼만)
-  const renderHeader = () => (
-    <View style={styles.header}>
->>>>>>> c80437fa78717037afb478adf4ee109291017435
       <View style={styles.headerButtons}>
         <TouchableOpacity style={styles.addButton} onPress={handleAddPress}>
           <Ionicons name="add-circle" size={22} color={Colors.textInverse} />
@@ -718,29 +629,11 @@ const FoodItemList = ({ onItemDeleted, refreshTrigger, initialFilter = null }) =
 
 const styles = {
   header: {
-<<<<<<< HEAD
-    paddingHorizontal: 20,
-    paddingTop: 0,
-    paddingBottom: 8,
-    backgroundColor: '#f8f9fa',
-=======
-    paddingHorizontal: Theme.spacing.lg,
-    paddingTop: 0,
-    paddingBottom: Theme.spacing.md,
-    alignItems: 'center',
->>>>>>> c80437fa78717037afb478adf4ee109291017435
   },
   headerButtons: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-<<<<<<< HEAD
-    marginTop: 4,
-    gap: 16,
-=======
-    marginTop: 0,
-    gap: Theme.spacing.sm,
->>>>>>> c80437fa78717037afb478adf4ee109291017435
   },
   addButton: {
     backgroundColor: Colors.primary,
@@ -787,11 +680,6 @@ const styles = {
   listContainer: {
     flexGrow: 1,
     paddingHorizontal: Theme.spacing.md,
-<<<<<<< HEAD
-    paddingTop: Theme.spacing.sm,
-=======
-    paddingTop: 0,
->>>>>>> c80437fa78717037afb478adf4ee109291017435
   },
   foodCard: {
     marginBottom: 8,
