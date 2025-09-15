@@ -12,7 +12,7 @@ import { cancelFoodNotifications } from '../utils/notifications';
 import { Colors, Theme } from '../utils/colors';
 import { Ionicons } from '@expo/vector-icons';
 import StatisticsService from '../services/statisticsService';
-import SmoothSearchInput, { addGlobalSearchCallback } from './SmoothSearchInput';
+import SmoothSearchInput from './SmoothSearchInput';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -173,13 +173,13 @@ const FoodItemList = ({ onItemDeleted, refreshTrigger, initialFilter = null }) =
     loadItems();
   }, [user, refreshTrigger]);
 
-  // 전역 검색 상태 구독
-  useEffect(() => {
-    const unsubscribe = addGlobalSearchCallback((query) => {
-      setSearchQuery(query);
-    });
-    return unsubscribe;
-  }, []);
+  // 전역 검색 상태 구독 (현재는 사용하지 않음)
+  // useEffect(() => {
+  //   const unsubscribe = addGlobalSearchCallback((query) => {
+  //     setSearchQuery(query);
+  //   });
+  //   return unsubscribe;
+  // }, []);
 
   // 검색어나 보관 방법 변경 시 필터링 및 정렬 적용 (useMemo로 최적화)
   const filteredItems = useMemo(() => {
