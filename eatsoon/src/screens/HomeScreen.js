@@ -4,7 +4,7 @@ import FoodItemList from '../components/FoodItemList';
 import { useAuth } from '../contexts/AuthContext';
 import { useFocusEffect } from '@react-navigation/native';
 import { loadFoodItemsFromFirestore } from '../utils/firebaseStorage';
-import { scheduleExpiryNotification, scheduleStockNotification } from '../utils/notifications';
+import { scheduleExpiryNotification, scheduleStockNotification, loadNotificationSettings } from '../utils/notifications';
 import StatisticsService from '../services/statisticsService';
 
 const HomeScreen = ({ route }) => {
@@ -29,6 +29,7 @@ const HomeScreen = ({ route }) => {
   const initializeNotifications = async () => {
     try {
       const foodItems = await loadFoodItemsFromFirestore() || [];
+      const settings = await loadNotificationSettings();
       
       let expiringSoonCount = 0;
       let expiredCount = 0;
@@ -37,8 +38,8 @@ const HomeScreen = ({ route }) => {
         // 유통기한 알림 예약
         await scheduleExpiryNotification(item);
         
-        // 재고 부족 알림 예약
-        if (item.quantity <= 2) {
+        // 재고 부족 알림 예약 (사용자 설정 임계값 사용)
+        if (item.quantity <= settings.stockThreshold) {
           await scheduleStockNotification(item);
         }
         

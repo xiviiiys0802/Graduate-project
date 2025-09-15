@@ -68,17 +68,6 @@ export default function TabNavigation() {
             <Ionicons name="ellipsis-horizontal" size={size} color={color} />
           ),
         }}
-        listeners={({ navigation }) => ({
-          tabPress: (e) => {
-            // 기본 동작 방지
-            e.preventDefault();
-            // 스택을 리셋하고 More 화면으로 이동
-            navigation.reset({
-              index: 0,
-              routes: [{ name: 'Settings', params: { screen: 'More' } }],
-            });
-          },
-        })}
       />
     </Tab.Navigator>
   );

@@ -13,6 +13,8 @@ import PrivacyScreen from '../screens/PrivacyScreen';
 import PrivacyPolicyScreen from '../screens/PrivacyPolicyScreen';
 import TermsOfServiceScreen from '../screens/TermsOfServiceScreen';
 import HelpScreen from '../screens/HelpScreen';
+import StatisticsReportScreen from '../screens/StatisticsReportScreen';
+import NotificationHistoryScreen from '../screens/NotificationHistoryScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -63,6 +65,16 @@ export default function SettingsStack() {
       <Stack.Screen 
         name="Help" 
         component={HelpScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen 
+        name="StatisticsReport" 
+        component={StatisticsReportScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen 
+        name="NotificationHistory" 
+        component={NotificationHistoryScreen}
         options={{ headerShown: false }}
       />
     </Stack.Navigator>

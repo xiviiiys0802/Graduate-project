@@ -20,7 +20,7 @@ export default function ProfileStack() {
         name="ProfileMain" 
         component={ProfileScreen}
         options={{ 
-          title: '프로필',
+          title: '마이페이지',
           headerStyle: {
             backgroundColor: '#f8f9fa',
           },
@@ -61,27 +61,42 @@ export default function ProfileStack() {
       <Stack.Screen 
         name="ProfileEdit" 
         component={ProfileEditScreen}
-        options={{ headerShown: false }}
+        options={{ 
+          headerShown: false,
+          gestureEnabled: false,
+        }}
       />
       <Stack.Screen 
         name="Privacy" 
         component={PrivacyScreen}
-        options={{ headerShown: false }}
+        options={{ 
+          headerShown: false,
+          gestureEnabled: false,
+        }}
       />
       <Stack.Screen 
         name="PrivacyPolicy" 
         component={PrivacyPolicyScreen}
-        options={{ headerShown: false }}
+        options={{ 
+          headerShown: false,
+          gestureEnabled: false,
+        }}
       />
       <Stack.Screen 
         name="TermsOfService" 
         component={TermsOfServiceScreen}
-        options={{ headerShown: false }}
+        options={{ 
+          headerShown: false,
+          gestureEnabled: false,
+        }}
       />
       <Stack.Screen 
         name="Help" 
         component={HelpScreen}
-        options={{ headerShown: false }}
+        options={{ 
+          headerShown: false,
+          gestureEnabled: false,
+        }}
       />
     </Stack.Navigator>
   );

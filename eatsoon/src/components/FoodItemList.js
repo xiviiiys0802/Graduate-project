@@ -6,9 +6,9 @@ import {
   deleteFoodItemFromFirestore 
 } from '../utils/firebaseStorage';
 import { useAuth } from '../contexts/AuthContext';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Dimensions } from 'react-native';
-import { cancelFoodNotifications } from '../utils/notifications';
+import { cancelFoodNotifications, loadNotificationSettings } from '../utils/notifications';
 import { Colors, Theme } from '../utils/colors';
 import { Ionicons } from '@expo/vector-icons';
 import StatisticsService from '../services/statisticsService';
@@ -20,38 +20,36 @@ const FoodItemList = ({ onItemDeleted, refreshTrigger, initialFilter = null }) =
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [sortType, setSortType] = useState('date'); // 'date', 'expiry', 'stock'
-  const [searchQuery, setSearchQuery] = useState('');
-  const [isSearchFocused, setIsSearchFocused] = useState(false);
-  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const searchQueryRef = useRef('');
   const [storageFilter, setStorageFilter] = useState('전체');
   const [isCompactView, setIsCompactView] = useState(false);
   const [isSortMenuVisible, setIsSortMenuVisible] = useState(false);
+  const [notificationSettings, setNotificationSettings] = useState({ stockThreshold: 2 });
   const searchInputRef = useRef(null);
   const navigation = useNavigation();
 
   const { user } = useAuth();
 
-  // 디바운싱을 위한 useEffect
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedSearchQuery(searchQuery);
-    }, 300); // 300ms 지연
-
-    return () => clearTimeout(timer);
-  }, [searchQuery]);
-
-  // 안정적인 검색 핸들러
+  // 검색어 변경 핸들러 (useRef 사용으로 리렌더링 방지)
   const handleSearchChange = useCallback((text) => {
-    setSearchQuery(text);
+    searchQueryRef.current = text;
   }, []);
 
-  const handleSearchFocus = useCallback(() => {
-    setIsSearchFocused(true);
-  }, []);
+  // 검색 핸들러
+  const handleSearch = useCallback(() => {
+    const query = searchQueryRef.current.trim();
+    if (!query) {
+      setSearchResults([]);
+      setIsSearching(false);
+      return;
+    }
 
-  const handleSearchBlur = useCallback(() => {
-    setIsSearchFocused(false);
-  }, []);
+    setIsSearching(true);
+    const results = filterItems(items || [], query, storageFilter);
+    setSearchResults(results);
+  }, [items, storageFilter]);
 
   // initialFilter가 'expiring'일 때 유통기한 임박 필터 적용
   useEffect(() => {
@@ -59,6 +57,22 @@ const FoodItemList = ({ onItemDeleted, refreshTrigger, initialFilter = null }) =
       setSortType('expiry');
     }
   }, [initialFilter]);
+
+  // 알림 설정 로드 (화면 포커스될 때마다)
+  useFocusEffect(
+    useCallback(() => {
+      const loadSettings = async () => {
+        try {
+          const settings = await loadNotificationSettings();
+          console.log('알림 설정 다시 로드:', settings);
+          setNotificationSettings(settings);
+        } catch (error) {
+          console.error('알림 설정 로드 실패:', error);
+        }
+      };
+      loadSettings();
+    }, [])
+  );
 
   const getCategoryKey = (category) => {
     const categoryMap = {
@@ -207,7 +221,9 @@ const FoodItemList = ({ onItemDeleted, refreshTrigger, initialFilter = null }) =
 
   // 검색어나 보관 방법 변경 시 필터링 및 정렬 적용 (useMemo로 최적화)
   const filteredItems = useMemo(() => {
-    let filtered = filterItems(items || [], debouncedSearchQuery, storageFilter);
+    // 검색 중이면 검색 결과 사용, 아니면 전체 아이템 사용
+    const itemsToFilter = isSearching ? searchResults : items || [];
+    let filtered = filterItems(itemsToFilter, '', storageFilter); // 검색은 이미 완료되었으므로 빈 문자열
     
     // 정렬 적용
     filtered = [...filtered].sort((a, b) => {
@@ -229,7 +245,7 @@ const FoodItemList = ({ onItemDeleted, refreshTrigger, initialFilter = null }) =
     });
     
     return filtered;
-  }, [items, storageFilter, sortType, debouncedSearchQuery]);
+  }, [items, storageFilter, sortType, isSearching, searchResults]);
 
   const handleRefresh = () => {
     setRefreshing(true);
@@ -371,18 +387,37 @@ const FoodItemList = ({ onItemDeleted, refreshTrigger, initialFilter = null }) =
         </TouchableOpacity>
         <View style={styles.searchInputContainer}>
           <TextInput
-            value={searchQuery || ''}
-            onChangeText={setSearchQuery}
+            ref={searchInputRef}
+            style={styles.searchInput}
+            defaultValue=""
+            onChangeText={handleSearchChange}
             placeholder="음식명이나 카테고리로 검색..."
-            onFocus={() => {
-              setIsSearchFocused(true);
-              console.log('검색창 포커스됨');
-            }}
-            onBlur={() => {
-              setIsSearchFocused(false);
-              console.log('검색창 블러됨');
-            }}
+            placeholderTextColor={Colors.textSecondary}
+            autoCapitalize="none"
+            autoCorrect={false}
+            returnKeyType="search"
+            blurOnSubmit={false}
+            onSubmitEditing={handleSearch}
           />
+          <TouchableOpacity 
+            onPress={handleSearch}
+            style={styles.searchButton}
+          >
+            <Ionicons name="search" size={20} color={Colors.primary} />
+          </TouchableOpacity>
+          {searchQueryRef.current ? (
+            <TouchableOpacity 
+              onPress={() => {
+                searchQueryRef.current = '';
+                searchInputRef.current?.clear();
+                setSearchResults([]);
+                setIsSearching(false);
+              }}
+              style={styles.clearButton}
+            >
+              <Ionicons name="close-circle" size={20} color={Colors.textSecondary} />
+            </TouchableOpacity>
+          ) : null}
         </View>
       </View>
       
@@ -446,7 +481,7 @@ const FoodItemList = ({ onItemDeleted, refreshTrigger, initialFilter = null }) =
   // 음식 아이템 카드
   const renderItem = ({ item }) => {
     const expiryStatus = getExpiryStatus(item.expirationDate);
-    const isLowStock = item.quantity <= 2;
+    const isLowStock = item.quantity <= notificationSettings.stockThreshold;
     
     if (isCompactView) {
       return (
@@ -568,7 +603,7 @@ const FoodItemList = ({ onItemDeleted, refreshTrigger, initialFilter = null }) =
 
   // 빈 상태 컴포넌트
   const renderEmptyComponent = () => {
-    if ((searchQuery || '').trim()) {
+    if (isSearching && filteredItems.length === 0) {
       return (
         <EmptyContainer>
           <View style={styles.emptyIconContainer}>
@@ -576,9 +611,17 @@ const FoodItemList = ({ onItemDeleted, refreshTrigger, initialFilter = null }) =
           </View>
           <EmptyText>검색 결과가 없습니다</EmptyText>
           <Text style={styles.emptySubtext}>
-            "{searchQuery || ''}"에 대한 검색 결과를 찾을 수 없습니다.
+            "{searchQueryRef.current}"에 대한 검색 결과를 찾을 수 없습니다.
           </Text>
-          <TouchableOpacity style={styles.clearSearchButton} onPress={handleClearSearch}>
+          <TouchableOpacity 
+            style={styles.clearSearchButton} 
+            onPress={() => {
+              searchQueryRef.current = '';
+              searchInputRef.current?.clear();
+              setSearchResults([]);
+              setIsSearching(false);
+            }}
+          >
             <Text style={styles.clearSearchButtonText}>검색 초기화</Text>
           </TouchableOpacity>
         </EmptyContainer>
@@ -717,13 +760,14 @@ const styles = {
     justifyContent: 'space-between',
     alignItems: 'center',
     marginTop: 4,
-    gap: 16,
+    marginBottom: 12,
+    gap: 10,
   },
   addButton: {
     backgroundColor: Colors.primary,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: Theme.spacing.xl,
+    paddingHorizontal: Theme.spacing.xl + 4,
     paddingVertical: Theme.spacing.md,
     borderRadius: Theme.borderRadius.lg,
     flex: 1,
@@ -745,7 +789,7 @@ const styles = {
     borderWidth: 2,
     borderColor: Colors.border,
     backgroundColor: Colors.surface,
-    minWidth: 100,
+    minWidth: 120,
     justifyContent: 'center',
   },
   sortButtonActive: {
@@ -767,10 +811,10 @@ const styles = {
     paddingTop: Theme.spacing.sm,
   },
   foodCard: {
-    marginBottom: 8,
-    borderLeftWidth: 4,
-    borderRadius: 8,
-    padding: 12,
+    marginBottom: 4,
+    borderLeftWidth: 2,
+    borderRadius: 6,
+    padding: 6,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
@@ -781,7 +825,7 @@ const styles = {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 8,
+    marginBottom: 6,
   },
   foodInfo: {
     flex: 1,
@@ -789,15 +833,15 @@ const styles = {
   foodTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: Theme.spacing.sm,
+    marginBottom: 6,
   },
   categoryIconContainer: {
-    width: 32,
-    height: 32,
+    width: 24,
+    height: 30,
     borderRadius: Theme.borderRadius.round,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: Theme.spacing.sm,
+    marginRight: 8,
     ...Theme.shadows.small,
   },
   foodNameContainer: {
@@ -837,7 +881,7 @@ const styles = {
   detailText: {
     fontSize: Theme.typography.caption.fontSize,
     color: Colors.textSecondary,
-    marginLeft: Theme.spacing.sm,
+    marginLeft: 4,
     fontWeight: '500',
   },
   actionButtons: {
@@ -996,6 +1040,30 @@ const styles = {
   },
   searchInputContainer: {
     flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 16,
+    color: '#333',
+    paddingVertical: 4,
+  },
+  searchButton: {
+    padding: 8,
+    marginLeft: 8,
+    backgroundColor: Colors.primary + '20',
+    borderRadius: 6,
+  },
+  clearButton: {
+    padding: 4,
+    marginLeft: 8,
   },
   // 메뉴 모달 스타일
   modalOverlay: {
