@@ -256,21 +256,6 @@ export default function MoreScreen() {
 
   return (
     <ScrollView style={styles.container}>
-      <Text style={styles.sectionTitle}>기능</Text>
-
-      <TouchableOpacity style={styles.recipeBox} onPress={() => navigation.navigate('RecipeRecommendation')}>
-        <Text style={styles.recipeText}>레시피 추천</Text>
-      </TouchableOpacity>
-
-      <View style={styles.bottomRow}>
-        <TouchableOpacity style={styles.leftBox} onPress={() => navigation.navigate('StatisticsReport')}>
-          <Text>통계/리포트</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.rightBox} onPress={() => navigation.navigate('ShoppingList')}>
-          <Text>장보기 리스트</Text>
-        </TouchableOpacity>
-      </View>
-
       {/* 레시피 추천 탭 */}
       {activeTab === 'recipe' && (
         <View style={styles.tabContent}>
