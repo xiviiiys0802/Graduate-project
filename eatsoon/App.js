@@ -7,7 +7,7 @@ import TabNavigation from './src/navigations/TabNavigation';
 import AddFoodScreen from './src/screens/AddFoodScreen';
 import { ActivityIndicator, View } from 'react-native';
 import NotificationSettingsScreen from './src/screens/NotificationSettingsScreen';
-import { registerForPushNotificationsAsync } from './src/utils/notifications';
+import { registerForPushNotificationsAsync, cancelAllNotifications } from './src/utils/notifications';
 import * as Notifications from 'expo-notifications';
 import { saveNotificationHistory } from './src/utils/notificationHistory';
 import { Colors } from './src/utils/colors';
@@ -20,6 +20,9 @@ const AppNavigator = () => {
   // 알림 시스템 초기화
   React.useEffect(() => {
     if (user) {
+      // 먼저 모든 기존 알림을 취소
+      cancelAllNotifications();
+      
       registerForPushNotificationsAsync();
       
       // 알림 리스너 설정

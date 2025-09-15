@@ -109,12 +109,38 @@ export async function registerForPushNotificationsAsync() {
 export async function scheduleExpiryNotification(foodItem) {
   try {
     const settings = await loadNotificationSettings();
+    
+    // 유통기한 알림이 비활성화되어 있으면 스킵
+    if (!settings.expiryEnabled) {
+      console.log('유통기한 알림이 비활성화되어 있습니다.');
+      return null;
+    }
+
+    // 우선순위 모드가 silent이면 스킵
+    if (settings.priorityMode === 'silent') {
+      console.log('알림 우선순위가 조용함 모드입니다.');
+      return null;
+    }
+
     const expiryDate = new Date(foodItem.expirationDate);
     const now = new Date();
     
     // 유통기한이 이미 지났으면 알림 예약하지 않음
     if (expiryDate <= now) {
       return null;
+    }
+
+    // 중복 알림 방지를 위한 키 생성
+    const duplicateKey = `expiry_${foodItem.id}`;
+    const lastNotificationTime = await AsyncStorage.getItem(duplicateKey);
+    
+    // 같은 음식에 대해 24시간 내에 이미 알림을 보냈다면 스킵
+    if (lastNotificationTime) {
+      const timeDiff = now.getTime() - parseInt(lastNotificationTime);
+      if (timeDiff < 24 * 60 * 60 * 1000) { // 24시간
+        console.log(`중복 유통기한 알림 방지: ${foodItem.name}`);
+        return null;
+      }
     }
 
     // 사용자 설정에 따른 알림 시점
@@ -145,13 +171,13 @@ export async function scheduleExpiryNotification(foodItem) {
             foodName: foodItem.name,
             daysLeft: notification.days
           },
+          sound: settings.soundEnabled ? 'default' : null,
+          vibrationPattern: settings.vibrationEnabled ? [0, 250, 250, 250] : null,
         },
         trigger: {
           date: triggerDate,
         },
       });
-
-      // 알림 히스토리는 실제 발송 시에만 저장 (스케줄링 시에는 저장하지 않음)
 
       scheduledNotifications.push({
         id: identifier,
@@ -164,11 +190,9 @@ export async function scheduleExpiryNotification(foodItem) {
       console.log(`유통기한 알림 예약됨: ${foodItem.name} - ${notification.days}일 전`);
     }
 
-    // 통계 업데이트
-    try {
-      await StatisticsService.addNotificationSent();
-    } catch (statError) {
-      console.error('알림 통계 업데이트 실패:', statError);
+    // 중복 방지를 위한 타임스탬프 저장
+    if (scheduledNotifications.length > 0) {
+      await AsyncStorage.setItem(duplicateKey, now.getTime().toString());
     }
 
     // 예약된 알림 정보를 AsyncStorage에 저장
@@ -185,6 +209,19 @@ export async function scheduleExpiryNotification(foodItem) {
 export async function scheduleStockNotification(foodItem) {
   try {
     const settings = await loadNotificationSettings();
+    
+    // 재고 알림이 비활성화되어 있으면 스킵
+    if (!settings.stockEnabled) {
+      console.log('재고 알림이 비활성화되어 있습니다.');
+      return null;
+    }
+
+    // 우선순위 모드가 silent이면 스킵
+    if (settings.priorityMode === 'silent') {
+      console.log('알림 우선순위가 조용함 모드입니다.');
+      return null;
+    }
+
     const lowStockThreshold = settings.stockThreshold; // 사용자 설정 임계값
     
     if (foodItem.quantity > lowStockThreshold) {
@@ -208,13 +245,13 @@ export async function scheduleStockNotification(foodItem) {
           foodName: foodItem.name,
           quantity: foodItem.quantity
         },
+        sound: settings.soundEnabled ? 'default' : null,
+        vibrationPattern: settings.vibrationEnabled ? [0, 250, 250, 250] : null,
       },
       trigger: {
         seconds: 1, // 즉시 알림
       },
     });
-
-    // 알림 히스토리는 실제 발송 시에만 저장 (스케줄링 시에는 저장하지 않음)
 
     // 최근 재고 알림 정보 저장 (중복 방지용)
     await saveRecentStockNotification(foodItem.id, foodItem.quantity);
@@ -405,6 +442,21 @@ export async function cancelFoodNotifications(foodId) {
 export async function cancelAllNotifications() {
   try {
     await Notifications.cancelAllScheduledNotificationsAsync();
+    
+    // AsyncStorage에서 알림 관련 데이터도 정리
+    const keys = await AsyncStorage.getAllKeys();
+    const notificationKeys = keys.filter(key => 
+      key.startsWith('expiry_') || 
+      key.startsWith('stock_') || 
+      key.startsWith('scheduled_notifications_') ||
+      key.startsWith('recent_stock_notification_')
+    );
+    
+    if (notificationKeys.length > 0) {
+      await AsyncStorage.multiRemove(notificationKeys);
+      console.log(`${notificationKeys.length}개의 알림 관련 데이터가 정리되었습니다.`);
+    }
+    
     await AsyncStorage.removeItem('scheduledNotifications');
     console.log('모든 알림이 취소됨');
     return true;

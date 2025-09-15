@@ -24,19 +24,19 @@ import {
 
 export default function NotificationSettingsScreen() {
   const [settings, setSettings] = useState({
-    expiryEnabled: true,
-    stockEnabled: true,
+    expiryEnabled: false,
+    stockEnabled: false,
     dailyEnabled: false,
-    smartEnabled: true,
-    recipeEnabled: true,
+    smartEnabled: false,
+    recipeEnabled: false,
     expiryDays: [3, 1, 0], // 3일 전, 1일 전, 당일
     dailyTime: '09:00', // 오전 9시
     stockThreshold: 2, // 재고 부족 임계값
     smartThreshold: 5, // 스마트 알림 임계값
     quietHours: { start: '22:00', end: '08:00' }, // 방해 금지 시간
-    priorityMode: 'normal', // normal, urgent, silent
-    vibrationEnabled: true,
-    soundEnabled: true
+    priorityMode: 'silent', // normal, urgent, silent
+    vibrationEnabled: false,
+    soundEnabled: false
   });
   const [loading, setLoading] = useState(true);
   const [showTimePicker, setShowTimePicker] = useState(false);
