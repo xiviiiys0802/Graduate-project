@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { FlatList, View, Text, TouchableOpacity, Alert, ActivityIndicator, Modal, StyleSheet } from 'react-native';
+import { FlatList, View, Text, TouchableOpacity, Alert, ActivityIndicator, Modal, StyleSheet, TextInput } from 'react-native';
 import { Container, Title, Card, Button, ButtonText, EmptyContainer, EmptyText, LoadingContainer } from './StyledComponents';
 import { 
   loadFoodItemsFromFirestore, 
