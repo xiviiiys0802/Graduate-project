@@ -18,19 +18,32 @@ export const AuthProvider = ({ children }) => {
   // ✅ 자동 로그인 여부 확인
   useEffect(() => {
     const checkAutoLogin = async () => {
-      const autoLogin = await AsyncStorage.getItem('autoLogin');
-      const unsubscribe = auth.onAuthStateChanged((user) => {
-        if (user && autoLogin === 'true') {
-          console.log('자동 로그인 허용됨, 로그인 유지:', user.email);
-          setUser(user);
-        } else {
-          console.log('자동 로그인 미허용 또는 로그아웃 상태');
-          setUser(null);
+      try {
+        const autoLogin = await AsyncStorage.getItem('autoLogin');
+        
+        // auth 객체가 완전히 초기화되었는지 확인
+        if (!auth || typeof auth.onAuthStateChanged !== 'function') {
+          console.log('Firebase auth가 아직 초기화되지 않았습니다. 잠시 후 다시 시도합니다.');
+          setTimeout(checkAutoLogin, 100);
+          return;
         }
-        setLoading(false);
-      });
+        
+        const unsubscribe = auth.onAuthStateChanged((user) => {
+          if (user && autoLogin === 'true') {
+            console.log('자동 로그인 허용됨, 로그인 유지:', user.email);
+            setUser(user);
+          } else {
+            console.log('자동 로그인 미허용 또는 로그아웃 상태');
+            setUser(null);
+          }
+          setLoading(false);
+        });
 
-      return unsubscribe;
+        return unsubscribe;
+      } catch (error) {
+        console.error('Auth 초기화 에러:', error);
+        setLoading(false);
+      }
     };
 
     checkAutoLogin();
