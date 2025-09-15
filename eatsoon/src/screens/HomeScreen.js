@@ -28,7 +28,7 @@ const HomeScreen = ({ route }) => {
 
   const initializeNotifications = async () => {
     try {
-      const foodItems = await loadFoodItemsFromFirestore();
+      const foodItems = await loadFoodItemsFromFirestore() || [];
       
       let expiringSoonCount = 0;
       let expiredCount = 0;

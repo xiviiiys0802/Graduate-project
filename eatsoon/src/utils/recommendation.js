@@ -60,7 +60,7 @@ export function scoreRecipe(recipe, pantryIdx, weights = { wUrgency: 1.2, wMatch
     }
   }
 
-  const neededCount = needed.length;
+  const neededCount = needed?.length || 0;
   const ratio = neededCount ? match / neededCount : 0;
   const score = weights.wUrgency * urgency + weights.wMatch * ratio - weights.wMissing * (missing?.length || 0);
 

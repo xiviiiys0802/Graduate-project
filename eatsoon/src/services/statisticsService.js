@@ -260,24 +260,24 @@ class StatisticsService {
       const now = new Date();
       
       // 유통기한 임박 아이템 계산 (3일 이내)
-      const expiringSoonItems = foodItems.filter(item => {
+      const expiringSoonItems = (foodItems?.filter(item => {
         const expiryDate = new Date(item.expirationDate);
         const diffTime = expiryDate - now;
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
         return diffDays <= 3 && diffDays >= 0;
-      }).length;
+      }) || []).length;
       
       // 만료된 아이템 계산
-      const expiredItems = foodItems.filter(item => {
+      const expiredItems = (foodItems?.filter(item => {
         const expiryDate = new Date(item.expirationDate);
         return expiryDate < now;
-      }).length;
+      }) || []).length;
       
       // 이번 주 알림 수 (로컬 통계에서 가져오기)
       const statistics = await this.loadStatistics();
       
       return {
-        totalFoodItems: foodItems.length,
+        totalFoodItems: foodItems?.length || 0,
         expiringSoonItems: expiringSoonItems,
         expiredItems: expiredItems,
         notificationsSent: statistics.weeklyStats.notificationsSent || 0,
@@ -308,21 +308,21 @@ class StatisticsService {
       const now = new Date();
       
       // 기본 통계 계산
-      const totalFoodItems = foodItems.length;
+      const totalFoodItems = foodItems?.length || 0;
       
       // 유통기한 임박 아이템 계산 (3일 이내)
-      const expiringSoonItems = foodItems.filter(item => {
+      const expiringSoonItems = (foodItems?.filter(item => {
         const expiryDate = new Date(item.expirationDate);
         const diffTime = expiryDate - now;
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
         return diffDays <= 3 && diffDays >= 0;
-      }).length;
+      }) || []).length;
       
       // 만료된 아이템 계산
-      const expiredItems = foodItems.filter(item => {
+      const expiredItems = (foodItems?.filter(item => {
         const expiryDate = new Date(item.expirationDate);
         return expiryDate < now;
-      }).length;
+      }) || []).length;
       
       // 카테고리별 분포 계산
       const categories = {
@@ -352,17 +352,17 @@ class StatisticsService {
       
       // 이번 주 추가된 음식 계산 (최근 7일)
       const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-      const weeklyFoodAdded = foodItems.filter(item => {
+      const weeklyFoodAdded = (foodItems?.filter(item => {
         const addedDate = new Date(item.addedDate);
         return addedDate >= weekAgo;
-      }).length;
+      }) || []).length;
       
       // 이번 달 추가된 음식 계산 (최근 30일)
       const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-      const monthlyFoodAdded = foodItems.filter(item => {
+      const monthlyFoodAdded = (foodItems?.filter(item => {
         const addedDate = new Date(item.addedDate);
         return addedDate >= monthAgo;
-      }).length;
+      }) || []).length;
       
       // 로컬 통계에서 알림 관련 데이터 가져오기
       const localStats = await this.loadStatistics();
@@ -434,10 +434,10 @@ class StatisticsService {
         dayEnd.setHours(23, 59, 59, 999);
         
         // 해당 요일에 추가된 음식 수 계산
-        const dayFoodCount = foodItems.filter(item => {
+        const dayFoodCount = (foodItems?.filter(item => {
           const addedDate = new Date(item.addedDate);
           return addedDate >= dayStart && addedDate <= dayEnd;
-        }).length;
+        }) || []).length;
         
         weeklyData.push({
           label: days[i],
