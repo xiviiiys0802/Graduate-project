@@ -27,27 +27,11 @@ export default function NotificationSettingsScreen() {
     expiryEnabled: false,
     stockEnabled: false,
     dailyEnabled: false,
-<<<<<<< HEAD
-    smartEnabled: false,
-    recipeEnabled: false,
-=======
-    smartEnabled: true,
-    recipeEnabled: true,
->>>>>>> c80437fa78717037afb478adf4ee109291017435
     expiryDays: [3, 1, 0], // 3일 전, 1일 전, 당일
     dailyTime: '09:00', // 오전 9시
     stockThreshold: 2, // 재고 부족 임계값
     smartThreshold: 5, // 스마트 알림 임계값
     quietHours: { start: '22:00', end: '08:00' }, // 방해 금지 시간
-<<<<<<< HEAD
-    priorityMode: 'silent', // normal, urgent, silent
-    vibrationEnabled: false,
-    soundEnabled: false
-=======
-    priorityMode: 'normal', // normal, urgent, silent
-    vibrationEnabled: true,
-    soundEnabled: true
->>>>>>> c80437fa78717037afb478adf4ee109291017435
   });
   const [loading, setLoading] = useState(true);
   const [showTimePicker, setShowTimePicker] = useState(false);

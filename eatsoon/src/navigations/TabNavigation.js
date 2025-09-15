@@ -3,13 +3,8 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons'; // 이거 꼭 import 되어 있어야 함!
 import { Colors } from '../utils/colors';
 
-<<<<<<< HEAD
 import HomeStack from './HomeStack';
-import ProfileScreen from '../screens/ProfileScreen';
-=======
-import HomeScreen from '../screens/HomeScreen';
 import ProfileStack from './ProfileStack';
->>>>>>> c80437fa78717037afb478adf4ee109291017435
 import SettingsStack from './SettingsStack'; // 새 이름으로 불러오기
 
 const Tab = createBottomTabNavigator();

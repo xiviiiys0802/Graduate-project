@@ -179,11 +179,7 @@ export async function scheduleExpiryNotification(foodItem) {
         },
       });
 
-<<<<<<< HEAD
-=======
       // 알림 히스토리는 실제 발송 시에만 저장 (스케줄링 시에는 저장하지 않음)
-
->>>>>>> c80437fa78717037afb478adf4ee109291017435
       scheduledNotifications.push({
         id: identifier,
         foodId: foodItem.id,
@@ -258,11 +254,6 @@ export async function scheduleStockNotification(foodItem) {
       },
     });
 
-<<<<<<< HEAD
-=======
-    // 알림 히스토리는 실제 발송 시에만 저장 (스케줄링 시에는 저장하지 않음)
-
->>>>>>> c80437fa78717037afb478adf4ee109291017435
     // 최근 재고 알림 정보 저장 (중복 방지용)
     await saveRecentStockNotification(foodItem.id, foodItem.quantity);
 
@@ -605,11 +596,6 @@ function calculateOptimalCookingTime(foodItems) {
       return daysUntilExpiry <= 3 && daysUntilExpiry >= 0;
     });
 
-<<<<<<< HEAD
-    if ((expiringSoon?.length || 0) === 0) return null;
-=======
-    if (expiringSoon.length === 0) return null;
->>>>>>> c80437fa78717037afb478adf4ee109291017435
 
     // 가장 임박한 재료들로 요리 추천
     const mainIngredient = expiringSoon.sort((a, b) => 
@@ -687,11 +673,7 @@ function findRecommendedRecipe(availableIngredients) {
         )
       );
 
-<<<<<<< HEAD
       if ((matchingIngredients?.length || 0) >= Math.min(3, (recipe.ingredients?.length || 0) * 0.6)) {
-=======
-      if (matchingIngredients.length >= Math.min(3, recipe.ingredients.length * 0.6)) {
->>>>>>> c80437fa78717037afb478adf4ee109291017435
         return recipe;
       }
     }

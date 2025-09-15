@@ -1,9 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, FlatList, ActivityIndicator, TouchableOpacity, Image, StyleSheet } from 'react-native';
-<<<<<<< HEAD
-=======
-import { onAuthStateChanged } from 'firebase/auth';
->>>>>>> c80437fa78717037afb478adf4ee109291017435
 import { auth } from '../config/firebase';
 import { subscribePantry, fetchRecipesOnce, seedRecipesIfEmpty, dedupeRecipesByName } from '../services/firestore';
 import { recommendRecipes } from '../utils/recommendation';
@@ -18,9 +14,19 @@ import {
 } from '../components/StyledComponents';
 
 // 매칭 상태를 시각적으로 보여주는 컴포넌트
-const MatchingProgress = ({ matchCount, neededCount, missing }) => {
+const MatchingProgress = ({ matchCount = 0, neededCount = 0, missing = [] }) => {
+  console.log('MatchingProgress props:', { matchCount, neededCount, missing });
+  
   const progress = neededCount > 0 ? matchCount / neededCount : 0;
   const progressPercentage = Math.round(progress * 100);
+  
+  // 매칭 정도에 따른 색상 결정
+  const getProgressColor = () => {
+    if (progressPercentage >= 100) return Colors.success;
+    if (progressPercentage >= 75) return Colors.info;
+    if (progressPercentage >= 50) return Colors.warning;
+    return Colors.danger;
+  };
   
   return (
     <View style={styles.matchingContainer}>
@@ -30,7 +36,10 @@ const MatchingProgress = ({ matchCount, neededCount, missing }) => {
           <View 
             style={[
               styles.progressFill, 
-              { width: `${progressPercentage}%` }
+              { 
+                width: `${progressPercentage}%`,
+                backgroundColor: getProgressColor()
+              }
             ]} 
           />
         </View>
@@ -46,28 +55,20 @@ const MatchingProgress = ({ matchCount, neededCount, missing }) => {
           {/* 보유한 재료들 */}
           {Array.from({ length: matchCount }, (_, index) => (
             <View key={`have-${index}`} style={styles.ingredientHave}>
-              <Ionicons name="checkmark-circle" size={16} color={Colors.success} />
+              <Ionicons name="checkmark-circle" size={20} color={Colors.success} />
             </View>
           ))}
           {/* 부족한 재료들 */}
-<<<<<<< HEAD
-          {Array.from({ length: missing?.length || 0 }, (_, index) => (
-=======
-          {Array.from({ length: missing.length }, (_, index) => (
->>>>>>> c80437fa78717037afb478adf4ee109291017435
+          {Array.from({ length: neededCount - matchCount }, (_, index) => (
             <View key={`missing-${index}`} style={styles.ingredientMissing}>
-              <Ionicons name="close-circle" size={16} color={Colors.danger} />
+              <Ionicons name="close-circle" size={20} color={Colors.danger} />
             </View>
           ))}
         </View>
       </View>
       
       {/* 부족한 재료 목록 */}
-<<<<<<< HEAD
-      {(missing?.length || 0) > 0 && (
-=======
-      {missing.length > 0 && (
->>>>>>> c80437fa78717037afb478adf4ee109291017435
+      {missing && missing.length > 0 && (
         <View style={styles.missingContainer}>
           <Text style={styles.missingLabel}>부족한 재료:</Text>
           <Text style={styles.missingText}>
@@ -109,11 +110,47 @@ export default function RecipeRecommendationScreen({ navigation }) {
 
   const ranked = useMemo(() => {
     if (loading) return [];
-    return recommendRecipes(recipes, pantry, {
+    
+    // 테스트용 레시피가 없으면 추가
+    if (recipes.length === 0) {
+      const testRecipes = [
+        {
+          id: 'test-1',
+          name: '김치찌개',
+          ingredients: [
+            { name: '김치', quantity: 1, unit: '컵' },
+            { name: '돼지고기', quantity: 200, unit: 'g' },
+            { name: '두부', quantity: 1, unit: '모' },
+            { name: '대파', quantity: 1, unit: '대' }
+          ]
+        },
+        {
+          id: 'test-2', 
+          name: '된장찌개',
+          ingredients: [
+            { name: '된장', quantity: 2, unit: '큰술' },
+            { name: '두부', quantity: 1, unit: '모' },
+            { name: '애호박', quantity: 1, unit: '개' },
+            { name: '양파', quantity: 1, unit: '개' }
+          ]
+        }
+      ];
+      const result = recommendRecipes(testRecipes, pantry, {
+        topK: 50,
+        maxMissing,
+        onlyFullMatch,
+      });
+      console.log('Test recipes result:', result);
+      return result;
+    }
+    
+    const result = recommendRecipes(recipes, pantry, {
       topK: 50,
       maxMissing,
       onlyFullMatch,
     });
+    console.log('Ranked recipes:', result.slice(0, 3)); // 처음 3개 레시피 로그
+    return result;
   }, [loading, recipes, pantry, maxMissing, onlyFullMatch]);
 
   if (loading) return (
@@ -190,11 +227,6 @@ export default function RecipeRecommendationScreen({ navigation }) {
               />
               
               <View style={styles.recipeActions}>
-<<<<<<< HEAD
-                {(item.missing?.length || 0) > 0 && (
-=======
-                {!!item.missing.length && (
->>>>>>> c80437fa78717037afb478adf4ee109291017435
                   <Button
                     style={[styles.actionButton, styles.shoppingButton]}
                     onPress={async () => {
@@ -336,26 +368,37 @@ const styles = StyleSheet.create({
     color: Colors.textPrimary,
   },
   matchingContainer: {
+    backgroundColor: Colors.surface,
+    padding: Theme.spacing.md,
+    borderRadius: Theme.borderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
     gap: Theme.spacing.sm,
   },
   progressContainer: {
+    alignItems: 'center',
     gap: Theme.spacing.xs,
   },
   progressBar: {
-    height: 8,
+    width: '100%',
+    height: 12,
     backgroundColor: Colors.border,
-    borderRadius: Theme.borderRadius.sm,
+    borderRadius: Theme.borderRadius.round,
     overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
   },
   progressFill: {
     height: '100%',
-    backgroundColor: Colors.success,
-    borderRadius: Theme.borderRadius.sm,
+    borderRadius: Theme.borderRadius.round,
   },
   progressText: {
     fontSize: Theme.typography.small.fontSize,
-    color: Colors.textSecondary,
-    fontWeight: '500',
+    color: Colors.textPrimary,
+    fontWeight: '600',
   },
   ingredientsContainer: {
     gap: Theme.spacing.xs,
@@ -363,7 +406,7 @@ const styles = StyleSheet.create({
   ingredientsLabel: {
     fontSize: Theme.typography.small.fontSize,
     color: Colors.textSecondary,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   ingredientsGrid: {
     flexDirection: 'row',
@@ -371,20 +414,24 @@ const styles = StyleSheet.create({
     gap: Theme.spacing.xs,
   },
   ingredientHave: {
-    width: 24,
-    height: 24,
+    width: 28,
+    height: 28,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: Colors.success + '20',
-    borderRadius: Theme.borderRadius.sm,
+    backgroundColor: Colors.success + '15',
+    borderRadius: Theme.borderRadius.round,
+    borderWidth: 1,
+    borderColor: Colors.success + '30',
   },
   ingredientMissing: {
-    width: 24,
-    height: 24,
+    width: 28,
+    height: 28,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: Colors.danger + '20',
-    borderRadius: Theme.borderRadius.sm,
+    backgroundColor: Colors.danger + '15',
+    borderRadius: Theme.borderRadius.round,
+    borderWidth: 1,
+    borderColor: Colors.danger + '30',
   },
   missingContainer: {
     padding: Theme.spacing.sm,

@@ -256,50 +256,32 @@ class StatisticsService {
   // 실제 Firestore 데이터를 기반으로 통계 계산
   async getRealtimeSummary() {
     try {
-<<<<<<< HEAD
-      const foodItems = await loadFoodItemsFromFirestore() || [];
-      const now = new Date();
-      
-      // 유통기한 임박 아이템 계산 (3일 이내)
-      const expiringSoonItems = (foodItems?.filter(item => {
-=======
       const foodItems = await loadFoodItemsFromFirestore();
       const now = new Date();
       
-      // 유통기한 임박 아이템 계산 (3일 이내)
-      const expiringSoonItems = foodItems.filter(item => {
->>>>>>> c80437fa78717037afb478adf4ee109291017435
-        const expiryDate = new Date(item.expirationDate);
-        const diffTime = expiryDate - now;
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        return diffDays <= 3 && diffDays >= 0;
-<<<<<<< HEAD
-      }) || []).length;
+      // 유통기한 임박 및 만료된 아이템 계산
+      let expiringSoonItems = 0;
+      let expiredItems = 0;
       
-      // 만료된 아이템 계산
-      const expiredItems = (foodItems?.filter(item => {
-        const expiryDate = new Date(item.expirationDate);
-        return expiryDate < now;
-      }) || []).length;
-=======
-      }).length;
-      
-      // 만료된 아이템 계산
-      const expiredItems = foodItems.filter(item => {
-        const expiryDate = new Date(item.expirationDate);
-        return expiryDate < now;
-      }).length;
->>>>>>> c80437fa78717037afb478adf4ee109291017435
+      foodItems.forEach(item => {
+        if (item.expirationDate) {
+          const expiryDate = new Date(item.expirationDate);
+          const diffTime = expiryDate - now;
+          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+          
+          if (diffDays <= 3 && diffDays >= 0) {
+            expiringSoonItems += 1;
+          } else if (diffDays < 0) {
+            expiredItems += 1;
+          }
+        }
+      });
       
       // 이번 주 알림 수 (로컬 통계에서 가져오기)
       const statistics = await this.loadStatistics();
       
       return {
-<<<<<<< HEAD
-        totalFoodItems: foodItems?.length || 0,
-=======
         totalFoodItems: foodItems.length,
->>>>>>> c80437fa78717037afb478adf4ee109291017435
         expiringSoonItems: expiringSoonItems,
         expiredItems: expiredItems,
         notificationsSent: statistics.weeklyStats.notificationsSent || 0,
@@ -326,46 +308,45 @@ class StatisticsService {
   // 실제 Firestore 데이터를 기반으로 완전한 통계 계산
   async getRealtimeFullStatistics() {
     try {
-<<<<<<< HEAD
-      const foodItems = await loadFoodItemsFromFirestore() || [];
-      const now = new Date();
-      
-      // 기본 통계 계산
-      const totalFoodItems = foodItems?.length || 0;
-      
-      // 유통기한 임박 아이템 계산 (3일 이내)
-      const expiringSoonItems = (foodItems?.filter(item => {
-=======
       const foodItems = await loadFoodItemsFromFirestore();
       const now = new Date();
       
       // 기본 통계 계산
       const totalFoodItems = foodItems.length;
+      let expiringSoonItems = 0;
+      let expiredItems = 0;
+      let weeklyFoodAdded = 0;
+      let monthlyFoodAdded = 0;
       
-      // 유통기한 임박 아이템 계산 (3일 이내)
-      const expiringSoonItems = foodItems.filter(item => {
->>>>>>> c80437fa78717037afb478adf4ee109291017435
-        const expiryDate = new Date(item.expirationDate);
-        const diffTime = expiryDate - now;
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        return diffDays <= 3 && diffDays >= 0;
-<<<<<<< HEAD
-      }) || []).length;
+      // 이번 주와 이번 달 시작 날짜 계산
+      const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
       
-      // 만료된 아이템 계산
-      const expiredItems = (foodItems?.filter(item => {
-        const expiryDate = new Date(item.expirationDate);
-        return expiryDate < now;
-      }) || []).length;
-=======
-      }).length;
-      
-      // 만료된 아이템 계산
-      const expiredItems = foodItems.filter(item => {
-        const expiryDate = new Date(item.expirationDate);
-        return expiryDate < now;
-      }).length;
->>>>>>> c80437fa78717037afb478adf4ee109291017435
+      foodItems.forEach(item => {
+        // 유통기한 임박 (3일 이내) 및 만료된 아이템 계산
+        if (item.expirationDate) {
+          const expiryDate = new Date(item.expirationDate);
+          const diffTime = expiryDate - now;
+          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+          
+          if (diffDays <= 3 && diffDays >= 0) {
+            expiringSoonItems += 1;
+          } else if (diffDays < 0) {
+            expiredItems += 1;
+          }
+        }
+        
+        // 이번 주/달 추가된 음식 계산
+        if (item.createdAt) {
+          const createdDate = new Date(item.createdAt);
+          if (createdDate >= weekAgo) {
+            weeklyFoodAdded += 1;
+          }
+          if (createdDate >= monthAgo) {
+            monthlyFoodAdded += 1;
+          }
+        }
+      });
       
       // 카테고리별 분포 계산
       const categories = {
@@ -393,34 +374,6 @@ class StatisticsService {
         categories[a[0]] > categories[b[0]] ? a : b
       )[0];
       
-      // 이번 주 추가된 음식 계산 (최근 7일)
-      const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-<<<<<<< HEAD
-      const weeklyFoodAdded = (foodItems?.filter(item => {
-        const addedDate = new Date(item.addedDate);
-        return addedDate >= weekAgo;
-      }) || []).length;
-      
-      // 이번 달 추가된 음식 계산 (최근 30일)
-      const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-      const monthlyFoodAdded = (foodItems?.filter(item => {
-        const addedDate = new Date(item.addedDate);
-        return addedDate >= monthAgo;
-      }) || []).length;
-=======
-      const weeklyFoodAdded = foodItems.filter(item => {
-        const addedDate = new Date(item.addedDate);
-        return addedDate >= weekAgo;
-      }).length;
-      
-      // 이번 달 추가된 음식 계산 (최근 30일)
-      const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-      const monthlyFoodAdded = foodItems.filter(item => {
-        const addedDate = new Date(item.addedDate);
-        return addedDate >= monthAgo;
-      }).length;
->>>>>>> c80437fa78717037afb478adf4ee109291017435
-      
       // 로컬 통계에서 알림 관련 데이터 가져오기
       const localStats = await this.loadStatistics();
       
@@ -433,12 +386,12 @@ class StatisticsService {
         weeklyStats: {
           foodAdded: weeklyFoodAdded,
           foodConsumed: 0, // 소비 데이터는 별도 추적 필요
-          notificationsSent: localStats.weeklyStats.notificationsSent || 0,
+          notificationsSent: localStats.weeklyStats?.notificationsSent || 0,
         },
         monthlyStats: {
           foodAdded: monthlyFoodAdded,
           foodConsumed: 0, // 소비 데이터는 별도 추적 필요
-          notificationsSent: localStats.monthlyStats.notificationsSent || 0,
+          notificationsSent: localStats.monthlyStats?.notificationsSent || 0,
           mostAddedCategory,
         },
         categories,
@@ -467,11 +420,7 @@ class StatisticsService {
   // 요일별 음식 추가 데이터 계산
   async getWeeklyFoodAddedData() {
     try {
-<<<<<<< HEAD
-      const foodItems = await loadFoodItemsFromFirestore() || [];
-=======
       const foodItems = await loadFoodItemsFromFirestore();
->>>>>>> c80437fa78717037afb478adf4ee109291017435
       const now = new Date();
       
       // 이번 주 월요일부터 일요일까지의 날짜 범위 계산
@@ -495,17 +444,11 @@ class StatisticsService {
         dayEnd.setHours(23, 59, 59, 999);
         
         // 해당 요일에 추가된 음식 수 계산
-<<<<<<< HEAD
-        const dayFoodCount = (foodItems?.filter(item => {
-          const addedDate = new Date(item.addedDate);
-          return addedDate >= dayStart && addedDate <= dayEnd;
-        }) || []).length;
-=======
         const dayFoodCount = foodItems.filter(item => {
-          const addedDate = new Date(item.addedDate);
-          return addedDate >= dayStart && addedDate <= dayEnd;
+          if (!item.createdAt) return false;
+          const createdDate = new Date(item.createdAt);
+          return createdDate >= dayStart && createdDate <= dayEnd;
         }).length;
->>>>>>> c80437fa78717037afb478adf4ee109291017435
         
         weeklyData.push({
           label: days[i],

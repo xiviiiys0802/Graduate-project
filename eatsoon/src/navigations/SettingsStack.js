@@ -20,36 +20,27 @@ export default function SettingsStack() {
     console.log('✅ SettingsStack loaded'); 
     return (
     <Stack.Navigator initialRouteName="More">
-<<<<<<< HEAD
-      <Stack.Screen name="More" component={MoreScreen} />
-      <Stack.Screen name="RecipeRecommendation" component={RecipeRecommendationScreen} />
-      <Stack.Screen name="RecipeDetail" component={RecipeDetailScreen} />
-      <Stack.Screen name="ShoppingList" component={ShoppingListScreen} />
-      <Stack.Screen 
-=======
       <Stack.Screen 
         name="More" 
         component={MoreScreen}
-        options={{ 
-          title: '더보기',
-          headerStyle: {
-            backgroundColor: '#f8f9fa',
-          },
-          headerTintColor: '#333',
-          headerTitleStyle: {
-            fontWeight: '600',
-          },
-        }}
+        options={{ headerShown: false }}
       />
-      <Stack.Screen name="RecipeRecommendation" component={RecipeRecommendationScreen} />
+      <Stack.Screen 
+        name="RecipeRecommendation" 
+        component={RecipeRecommendationScreen}
+        options={{ headerShown: false }}
+      />
       <Stack.Screen 
         name="RecipeDetail" 
         component={RecipeDetailScreen}
         options={{ headerShown: false }}
       />
-      <Stack.Screen name="ShoppingList" component={ShoppingListScreen} />
       <Stack.Screen 
->>>>>>> c80437fa78717037afb478adf4ee109291017435
+        name="ShoppingList" 
+        component={ShoppingListScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen 
         name="ProfileEdit" 
         component={ProfileEditScreen}
         options={{ headerShown: false }}

@@ -59,11 +59,7 @@ export const BarChart = ({ data, title, height = 200, barColor = Colors.primary 
 
 // 카테고리 분포 차트 (막대 차트 방식)
 export const PieChart = ({ data, title, size = 120 }) => {
-<<<<<<< HEAD
   if (!data || (data?.length || 0) === 0) {
-=======
-  if (!data || data.length === 0) {
->>>>>>> c80437fa78717037afb478adf4ee109291017435
     return (
       <View style={styles.chartContainer}>
         <Text style={styles.chartTitle}>{title}</Text>
@@ -84,11 +80,7 @@ export const PieChart = ({ data, title, size = 120 }) => {
         {/* 막대 차트 방식으로 표시 */}
         <View style={styles.categoryBars}>
           {data.map((item, index) => {
-<<<<<<< HEAD
             const color = colors[index % (colors?.length || 1)];
-=======
-            const color = colors[index % colors.length];
->>>>>>> c80437fa78717037afb478adf4ee109291017435
             const percentage = total > 0 ? (item.value / total) * 100 : 0;
             return (
               <View key={index} style={styles.categoryBarItem}>
