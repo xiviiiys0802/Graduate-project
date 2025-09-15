@@ -347,9 +347,11 @@ const FoodItemList = ({ onItemDeleted, refreshTrigger, initialFilter = null }) =
         </TouchableOpacity>
         <View style={styles.searchInputContainer}>
           <SmoothSearchInput
-            value={searchQuery}
+            value={searchQuery || ''}
             onChangeText={setSearchQuery}
             placeholder="음식명이나 카테고리로 검색..."
+            onFocus={() => console.log('검색창 포커스됨')}
+            onBlur={() => console.log('검색창 블러됨')}
           />
         </View>
       </View>

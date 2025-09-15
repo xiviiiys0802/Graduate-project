@@ -38,13 +38,15 @@ const SmoothSearchInput = ({
         />
         <TextInput
           style={styles.searchInput}
-          value={value}
+          value={value || ''}
           onChangeText={onChangeText}
           placeholder={placeholder}
           placeholderTextColor="#999"
           onFocus={handleFocus}
           onBlur={handleBlur}
           returnKeyType="search"
+          editable={true}
+          selectTextOnFocus={true}
         />
         {(value?.length || 0) > 0 && (
           <TouchableOpacity onPress={handleClear} style={styles.clearButton}>
