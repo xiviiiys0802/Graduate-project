@@ -543,7 +543,7 @@ function calculateOptimalCookingTime(foodItems) {
       return daysUntilExpiry <= 3 && daysUntilExpiry >= 0;
     });
 
-    if (expiringSoon.length === 0) return null;
+    if ((expiringSoon?.length || 0) === 0) return null;
 
     // 가장 임박한 재료들로 요리 추천
     const mainIngredient = expiringSoon.sort((a, b) => 
@@ -621,7 +621,7 @@ function findRecommendedRecipe(availableIngredients) {
         )
       );
 
-      if (matchingIngredients.length >= Math.min(3, recipe.ingredients.length * 0.6)) {
+      if ((matchingIngredients?.length || 0) >= Math.min(3, (recipe.ingredients?.length || 0) * 0.6)) {
         return recipe;
       }
     }

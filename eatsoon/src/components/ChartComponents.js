@@ -6,7 +6,7 @@ const { width } = Dimensions.get('window');
 
 // 막대 차트 컴포넌트
 export const BarChart = ({ data, title, height = 200, barColor = Colors.primary }) => {
-  if (!data || data.length === 0) {
+  if (!data || (data?.length || 0) === 0) {
     return (
       <View style={[styles.chartContainer, { height }]}>
         <Text style={styles.chartTitle}>{title}</Text>
@@ -59,7 +59,7 @@ export const BarChart = ({ data, title, height = 200, barColor = Colors.primary 
 
 // 카테고리 분포 차트 (막대 차트 방식)
 export const PieChart = ({ data, title, size = 120 }) => {
-  if (!data || data.length === 0) {
+  if (!data || (data?.length || 0) === 0) {
     return (
       <View style={styles.chartContainer}>
         <Text style={styles.chartTitle}>{title}</Text>
@@ -80,7 +80,7 @@ export const PieChart = ({ data, title, size = 120 }) => {
         {/* 막대 차트 방식으로 표시 */}
         <View style={styles.categoryBars}>
           {data.map((item, index) => {
-            const color = colors[index % colors.length];
+            const color = colors[index % (colors?.length || 1)];
             const percentage = total > 0 ? (item.value / total) * 100 : 0;
             return (
               <View key={index} style={styles.categoryBarItem}>
@@ -115,7 +115,7 @@ export const PieChart = ({ data, title, size = 120 }) => {
 
 // 라인 차트 컴포넌트 (간단한 버전)
 export const LineChart = ({ data, title, height = 200, lineColor = Colors.primary }) => {
-  if (!data || data.length < 2) {
+  if (!data || (data?.length || 0) < 2) {
     return (
       <View style={[styles.chartContainer, { height }]}>
         <Text style={styles.chartTitle}>{title}</Text>
@@ -133,7 +133,7 @@ export const LineChart = ({ data, title, height = 200, lineColor = Colors.primar
   const chartHeight = height - 80;
 
   const points = data.map((item, index) => {
-    const x = (index / (data.length - 1)) * chartWidth;
+    const x = (index / ((data?.length || 1) - 1)) * chartWidth;
     const y = valueRange > 0 
       ? chartHeight - ((item.value - minValue) / valueRange) * chartHeight
       : chartHeight / 2;

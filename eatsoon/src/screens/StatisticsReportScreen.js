@@ -242,7 +242,7 @@ export default function StatisticsReportScreen() {
             data={getCategoryData()}
             title="등록된 음식 카테고리"
           />
-          {getCategoryData().length === 0 && (
+          {(getCategoryData()?.length || 0) === 0 && (
             <View style={styles.emptyState}>
               <Text style={styles.emptyStateText}>아직 등록된 음식이 없습니다</Text>
             </View>

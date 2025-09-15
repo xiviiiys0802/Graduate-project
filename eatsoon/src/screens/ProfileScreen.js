@@ -101,7 +101,7 @@ export default function ProfileScreen() {
         quality: 0.7,
       });
 
-      if (!result.canceled && result.assets && result.assets.length > 0) {
+      if (!result.canceled && result.assets && (result.assets?.length || 0) > 0) {
         const imageUri = result.assets[0].uri;
         await uploadImageToFirebase(imageUri);
       }

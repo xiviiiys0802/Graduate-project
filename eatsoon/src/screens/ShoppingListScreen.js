@@ -117,7 +117,7 @@ export default function ShoppingListScreen() {
   };
 
   const handleDeleteAllChecked = async () => {
-    const checkedCount = items.filter(item => item.checked).length;
+    const checkedCount = (items?.filter(item => item.checked) || []).length;
     if (checkedCount === 0) {
       Alert.alert('알림', '구매완료된 항목이 없습니다.');
       return;

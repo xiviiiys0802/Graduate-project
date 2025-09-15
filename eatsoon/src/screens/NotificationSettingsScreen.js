@@ -149,7 +149,7 @@ export default function NotificationSettingsScreen() {
   };
 
   const formatExpiryDays = (days) => {
-    if (days.length === 0) return '설정되지 않음';
+    if ((days?.length || 0) === 0) return '설정되지 않음';
     return days.map(day => `${day}일 전`).join(', ');
   };
 

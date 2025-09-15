@@ -105,7 +105,7 @@ export async function getNotificationHistory() {
     if (data) {
       const history = JSON.parse(data);
       console.log('[DEBUG] 불러온 알림 히스토리:', {
-        개수: history.length,
+        개수: history?.length || 0,
         타입별_분포: history.reduce((acc, n) => {
           acc[n.type] = (acc[n.type] || 0) + 1;
           return acc;
@@ -204,7 +204,7 @@ export async function clearAllNotifications() {
 export async function getUnreadNotificationCount() {
   try {
     const history = await getNotificationHistory();
-    return history.filter(notification => !notification.read).length;
+    return (history?.filter(notification => !notification.read) || []).length;
   } catch (error) {
     console.error('읽지 않은 알림 개수 가져오기 실패:', error);
     return 0;
@@ -217,7 +217,7 @@ export function filterNotificationsByType(notifications, type) {
   
   console.log('[DEBUG] 필터링 시작:', {
     요청된_타입: type,
-    전체_알림_개수: notifications.length,
+    전체_알림_개수: notifications?.length || 0,
     알림_타입들: notifications.map(n => n.type)
   });
   
@@ -238,7 +238,7 @@ export function filterNotificationsByType(notifications, type) {
   });
   
   console.log('[DEBUG] 필터링 결과:', {
-    필터링된_알림_개수: filtered.length,
+    필터링된_알림_개수: filtered?.length || 0,
     필터링된_알림들: filtered.map(n => ({ type: n.type, title: n.title }))
   });
   
