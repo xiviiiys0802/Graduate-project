@@ -1,5 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, FlatList, ActivityIndicator, TouchableOpacity, Image, StyleSheet } from 'react-native';
+<<<<<<< HEAD
+=======
+import { onAuthStateChanged } from 'firebase/auth';
+>>>>>>> c80437fa78717037afb478adf4ee109291017435
 import { auth } from '../config/firebase';
 import { subscribePantry, fetchRecipesOnce, seedRecipesIfEmpty, dedupeRecipesByName } from '../services/firestore';
 import { recommendRecipes } from '../utils/recommendation';
@@ -46,7 +50,11 @@ const MatchingProgress = ({ matchCount, neededCount, missing }) => {
             </View>
           ))}
           {/* 부족한 재료들 */}
+<<<<<<< HEAD
           {Array.from({ length: missing?.length || 0 }, (_, index) => (
+=======
+          {Array.from({ length: missing.length }, (_, index) => (
+>>>>>>> c80437fa78717037afb478adf4ee109291017435
             <View key={`missing-${index}`} style={styles.ingredientMissing}>
               <Ionicons name="close-circle" size={16} color={Colors.danger} />
             </View>
@@ -55,7 +63,11 @@ const MatchingProgress = ({ matchCount, neededCount, missing }) => {
       </View>
       
       {/* 부족한 재료 목록 */}
+<<<<<<< HEAD
       {(missing?.length || 0) > 0 && (
+=======
+      {missing.length > 0 && (
+>>>>>>> c80437fa78717037afb478adf4ee109291017435
         <View style={styles.missingContainer}>
           <Text style={styles.missingLabel}>부족한 재료:</Text>
           <Text style={styles.missingText}>
@@ -178,7 +190,11 @@ export default function RecipeRecommendationScreen({ navigation }) {
               />
               
               <View style={styles.recipeActions}>
+<<<<<<< HEAD
                 {(item.missing?.length || 0) > 0 && (
+=======
+                {!!item.missing.length && (
+>>>>>>> c80437fa78717037afb478adf4ee109291017435
                   <Button
                     style={[styles.actionButton, styles.shoppingButton]}
                     onPress={async () => {

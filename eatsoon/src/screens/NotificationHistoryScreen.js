@@ -55,7 +55,7 @@ export default function NotificationHistoryScreen() {
     }
   }, [selectedFilter]);
 
-  const loadNotifications = async () => {
+  const loadNotifications = async (forceReload = false) => {
     try {
       setLoading(true);
       const history = await getNotificationHistory();
@@ -125,8 +125,27 @@ export default function NotificationHistoryScreen() {
           text: '삭제',
           style: 'destructive',
           onPress: async () => {
-            await deleteNotification(notificationId);
-            loadNotifications();
+            try {
+              await deleteNotification(notificationId);
+              
+              // 즉시 UI 업데이트 (필터 적용된 목록)
+              const updatedNotifications = notifications.filter(n => n.id !== notificationId);
+              setNotifications(updatedNotifications);
+              setGroupedNotifications(groupNotificationsByDate(updatedNotifications));
+              
+              // 전체 알림 목록도 업데이트
+              const updatedAllNotifications = allNotifications.filter(n => n.id !== notificationId);
+              setAllNotifications(updatedAllNotifications);
+              
+              // 읽지 않은 알림 개수 재계산
+              const unreadCount = updatedAllNotifications.filter(n => !n.read).length;
+              setUnreadCount(unreadCount);
+              
+              console.log('[DEBUG] 알림 삭제 완료:', notificationId);
+            } catch (error) {
+              console.error('알림 삭제 실패:', error);
+              Alert.alert('오류', '알림 삭제에 실패했습니다.');
+            }
           }
         }
       ]
@@ -161,13 +180,19 @@ export default function NotificationHistoryScreen() {
           text: '삭제',
           style: 'destructive',
           onPress: async () => {
-            await clearAllNotifications();
-            // 모든 상태 초기화
-            setNotifications([]);
-            setGroupedNotifications([]);
-            setUnreadCount(0);
-            // 필터도 전체로 리셋
-            setSelectedFilter('all');
+            try {
+              await clearAllNotifications();
+              // 모든 상태 초기화
+              setNotifications([]);
+              setGroupedNotifications([]);
+              setAllNotifications([]);
+              setUnreadCount(0);
+              // 필터도 전체로 리셋
+              setSelectedFilter('all');
+            } catch (error) {
+              console.error('모든 알림 삭제 실패:', error);
+              Alert.alert('오류', '모든 알림 삭제에 실패했습니다.');
+            }
           }
         }
       ]
@@ -350,6 +375,36 @@ export default function NotificationHistoryScreen() {
             요리추천 ({(filterNotificationsByType(allNotifications, 'recipe') || []).length})
           </Text>
         </TouchableOpacity>
+        
+        <TouchableOpacity
+          style={[
+            styles.filterButton,
+            selectedFilter === 'smart' && styles.filterButtonActive
+          ]}
+          onPress={() => handleFilterChange('smart')}
+        >
+          <Text style={[
+            styles.filterButtonText,
+            selectedFilter === 'smart' && styles.filterButtonTextActive
+          ]}>
+            스마트알림 ({filterNotificationsByType(allNotifications, 'smart').length})
+          </Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity
+          style={[
+            styles.filterButton,
+            selectedFilter === 'recipe' && styles.filterButtonActive
+          ]}
+          onPress={() => handleFilterChange('recipe')}
+        >
+          <Text style={[
+            styles.filterButtonText,
+            selectedFilter === 'recipe' && styles.filterButtonTextActive
+          ]}>
+            요리추천 ({filterNotificationsByType(allNotifications, 'recipe').length})
+          </Text>
+        </TouchableOpacity>
       </ScrollView>
     </View>
   );
@@ -367,19 +422,6 @@ export default function NotificationHistoryScreen() {
 
   return (
     <Container>
-      {/* 헤더 */}
-      <View style={styles.header}>
-        <TouchableOpacity 
-          style={styles.backButton}
-          onPress={() => navigation.navigate('Main', { screen: 'Profile' })}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
-          <Ionicons name="arrow-back" size={28} color={Colors.textPrimary} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>알림 히스토리</Text>
-        <View style={styles.headerSpacer} />
-      </View>
-
       {/* 필터 버튼 */}
       {renderFilterButtons()}
 
@@ -446,34 +488,6 @@ const styles = StyleSheet.create({
     marginTop: Theme.spacing.md,
     fontSize: Theme.typography.body.fontSize,
     color: Colors.textSecondary,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: Theme.spacing.md,
-    paddingVertical: Theme.spacing.lg,
-    backgroundColor: Colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-    marginBottom: Theme.spacing.md,
-    minHeight: 60,
-  },
-  backButton: {
-    padding: Theme.spacing.md,
-    marginLeft: -Theme.spacing.sm,
-    minWidth: 44,
-    minHeight: 44,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerTitle: {
-    fontSize: Theme.typography.h3.fontSize,
-    fontWeight: '600',
-    color: Colors.textPrimary,
-  },
-  headerSpacer: {
-    width: 44,
   },
   listHeader: {
     backgroundColor: Colors.surface,
