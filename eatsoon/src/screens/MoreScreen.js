@@ -256,6 +256,37 @@ export default function MoreScreen() {
 
   return (
     <ScrollView style={styles.container}>
+      {/* 탭 헤더 */}
+      <View style={styles.tabHeader}>
+        <TouchableOpacity
+          style={[styles.tabButton, activeTab === 'recipe' && styles.tabButtonActive]}
+          onPress={() => setActiveTab('recipe')}
+        >
+          <Ionicons 
+            name="restaurant-outline" 
+            size={20} 
+            color={activeTab === 'recipe' ? '#fff' : '#666'} 
+          />
+          <Text style={[styles.tabText, activeTab === 'recipe' && styles.tabTextActive]}>
+            레시피 추천
+          </Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity
+          style={[styles.tabButton, activeTab === 'shopping' && styles.tabButtonActive]}
+          onPress={() => setActiveTab('shopping')}
+        >
+          <Ionicons 
+            name="cart-outline" 
+            size={20} 
+            color={activeTab === 'shopping' ? '#fff' : '#666'} 
+          />
+          <Text style={[styles.tabText, activeTab === 'shopping' && styles.tabTextActive]}>
+            장보기 리스트
+          </Text>
+        </TouchableOpacity>
+      </View>
+
       {/* 레시피 추천 탭 */}
       {activeTab === 'recipe' && (
         <View style={styles.tabContent}>
@@ -378,15 +409,41 @@ const styles = StyleSheet.create({
   container: {
     backgroundColor: '#fff',
   },
+  tabHeader: {
+    flexDirection: 'row',
+    backgroundColor: '#f8f9fa',
+    marginHorizontal: 16,
+    marginTop: 16,
+    borderRadius: 12,
+    padding: 4,
+  },
+  tabButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    gap: 6,
+  },
+  tabButtonActive: {
+    backgroundColor: '#4f62c0',
+  },
+  tabText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#666',
+  },
+  tabTextActive: {
+    color: '#fff',
+  },
   sectionTitle: {
     fontSize: 14,
     fontWeight: '600',
     color: '#666',
     marginHorizontal: 16,
     marginTop: 24,
-  },
-  tabTextActive: {
-    color: '#333',
   },
   tabContent: {
     marginTop: 20,
