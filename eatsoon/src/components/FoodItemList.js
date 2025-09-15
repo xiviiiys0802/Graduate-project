@@ -22,6 +22,7 @@ const FoodItemList = ({ onItemDeleted, refreshTrigger, initialFilter = null }) =
   const [refreshing, setRefreshing] = useState(false);
   const [sortType, setSortType] = useState('date'); // 'date', 'expiry', 'stock'
   const [searchQuery, setSearchQuery] = useState('');
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [storageFilter, setStorageFilter] = useState('전체');
   const [isCompactView, setIsCompactView] = useState(false);
   const [isSortMenuVisible, setIsSortMenuVisible] = useState(false);
@@ -350,8 +351,14 @@ const FoodItemList = ({ onItemDeleted, refreshTrigger, initialFilter = null }) =
             value={searchQuery || ''}
             onChangeText={setSearchQuery}
             placeholder="음식명이나 카테고리로 검색..."
-            onFocus={() => console.log('검색창 포커스됨')}
-            onBlur={() => console.log('검색창 블러됨')}
+            onFocus={() => {
+              setIsSearchFocused(true);
+              console.log('검색창 포커스됨');
+            }}
+            onBlur={() => {
+              setIsSearchFocused(false);
+              console.log('검색창 블러됨');
+            }}
           />
         </View>
       </View>

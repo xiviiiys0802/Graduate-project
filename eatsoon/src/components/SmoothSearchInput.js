@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../utils/colors';
@@ -12,6 +12,13 @@ const SmoothSearchInput = ({
   style 
 }) => {
   const [isFocused, setIsFocused] = useState(false);
+  const [internalValue, setInternalValue] = useState(value || '');
+  const textInputRef = useRef(null);
+
+  // 외부 value가 변경될 때 내부 상태 동기화
+  useEffect(() => {
+    setInternalValue(value || '');
+  }, [value]);
 
   const handleFocus = () => {
     setIsFocused(true);
@@ -23,8 +30,18 @@ const SmoothSearchInput = ({
     onBlur && onBlur();
   };
 
+  const handleTextChange = (text) => {
+    setInternalValue(text);
+    onChangeText && onChangeText(text);
+  };
+
   const handleClear = () => {
-    onChangeText('');
+    setInternalValue('');
+    onChangeText && onChangeText('');
+    // 포커스 유지
+    setTimeout(() => {
+      textInputRef.current?.focus();
+    }, 100);
   };
 
   return (
@@ -37,9 +54,10 @@ const SmoothSearchInput = ({
           style={styles.searchIcon}
         />
         <TextInput
+          ref={textInputRef}
           style={styles.searchInput}
-          value={value || ''}
-          onChangeText={onChangeText}
+          value={internalValue}
+          onChangeText={handleTextChange}
           placeholder={placeholder}
           placeholderTextColor="#999"
           onFocus={handleFocus}
@@ -47,8 +65,10 @@ const SmoothSearchInput = ({
           returnKeyType="search"
           editable={true}
           selectTextOnFocus={true}
+          autoCorrect={false}
+          autoCapitalize="none"
         />
-        {(value?.length || 0) > 0 && (
+        {(internalValue?.length || 0) > 0 && (
           <TouchableOpacity onPress={handleClear} style={styles.clearButton}>
             <Ionicons name="close-circle" size={20} color="#999" />
           </TouchableOpacity>
