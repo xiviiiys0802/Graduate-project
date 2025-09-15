@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { FlatList, View, Text, TouchableOpacity, Alert, ActivityIndicator, Modal, StyleSheet, TextInput } from 'react-native';
 import { Container, Title, Card, Button, ButtonText, EmptyContainer, EmptyText, LoadingContainer } from './StyledComponents';
 import { 
@@ -22,12 +22,36 @@ const FoodItemList = ({ onItemDeleted, refreshTrigger, initialFilter = null }) =
   const [sortType, setSortType] = useState('date'); // 'date', 'expiry', 'stock'
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
   const [storageFilter, setStorageFilter] = useState('전체');
   const [isCompactView, setIsCompactView] = useState(false);
   const [isSortMenuVisible, setIsSortMenuVisible] = useState(false);
+  const searchInputRef = useRef(null);
   const navigation = useNavigation();
 
   const { user } = useAuth();
+
+  // 디바운싱을 위한 useEffect
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 300); // 300ms 지연
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // 안정적인 검색 핸들러
+  const handleSearchChange = useCallback((text) => {
+    setSearchQuery(text);
+  }, []);
+
+  const handleSearchFocus = useCallback(() => {
+    setIsSearchFocused(true);
+  }, []);
+
+  const handleSearchBlur = useCallback(() => {
+    setIsSearchFocused(false);
+  }, []);
 
   // initialFilter가 'expiring'일 때 유통기한 임박 필터 적용
   useEffect(() => {
@@ -183,7 +207,7 @@ const FoodItemList = ({ onItemDeleted, refreshTrigger, initialFilter = null }) =
 
   // 검색어나 보관 방법 변경 시 필터링 및 정렬 적용 (useMemo로 최적화)
   const filteredItems = useMemo(() => {
-    let filtered = filterItems(items || [], searchQuery, storageFilter);
+    let filtered = filterItems(items || [], debouncedSearchQuery, storageFilter);
     
     // 정렬 적용
     filtered = [...filtered].sort((a, b) => {
@@ -205,7 +229,7 @@ const FoodItemList = ({ onItemDeleted, refreshTrigger, initialFilter = null }) =
     });
     
     return filtered;
-  }, [searchQuery, storageFilter, items, sortType]);
+  }, [items, storageFilter, sortType, debouncedSearchQuery]);
 
   const handleRefresh = () => {
     setRefreshing(true);
@@ -347,17 +371,22 @@ const FoodItemList = ({ onItemDeleted, refreshTrigger, initialFilter = null }) =
         </TouchableOpacity>
         <View style={styles.searchInputContainer}>
           <TextInput
+            ref={searchInputRef}
             style={styles.searchInput}
             value={searchQuery}
-            onChangeText={setSearchQuery}
+            onChangeText={handleSearchChange}
             placeholder="음식명이나 카테고리로 검색..."
             placeholderTextColor="#999"
-            onFocus={() => setIsSearchFocused(true)}
-            onBlur={() => setIsSearchFocused(false)}
             returnKeyType="search"
             autoCorrect={false}
             autoCapitalize="none"
             blurOnSubmit={false}
+            onSubmitEditing={() => {}}
+            onFocus={handleSearchFocus}
+            onBlur={handleSearchBlur}
+            editable={true}
+            multiline={false}
+            numberOfLines={1}
           />
         </View>
       </View>
