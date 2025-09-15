@@ -12,7 +12,6 @@ import { cancelFoodNotifications } from '../utils/notifications';
 import { Colors, Theme } from '../utils/colors';
 import { Ionicons } from '@expo/vector-icons';
 import StatisticsService from '../services/statisticsService';
-import SmoothSearchInput from './SmoothSearchInput';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -347,18 +346,18 @@ const FoodItemList = ({ onItemDeleted, refreshTrigger, initialFilter = null }) =
           />
         </TouchableOpacity>
         <View style={styles.searchInputContainer}>
-          <SmoothSearchInput
-            value={searchQuery || ''}
+          <TextInput
+            style={styles.searchInput}
+            value={searchQuery}
             onChangeText={setSearchQuery}
             placeholder="음식명이나 카테고리로 검색..."
-            onFocus={() => {
-              setIsSearchFocused(true);
-              console.log('검색창 포커스됨');
-            }}
-            onBlur={() => {
-              setIsSearchFocused(false);
-              console.log('검색창 블러됨');
-            }}
+            placeholderTextColor="#999"
+            onFocus={() => setIsSearchFocused(true)}
+            onBlur={() => setIsSearchFocused(false)}
+            returnKeyType="search"
+            autoCorrect={false}
+            autoCapitalize="none"
+            blurOnSubmit={false}
           />
         </View>
       </View>
@@ -973,6 +972,16 @@ const styles = {
   },
   searchInputContainer: {
     flex: 1,
+  },
+  searchInput: {
+    flex: 1,
+    height: 40,
+    backgroundColor: '#f5f5f5',
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    fontSize: 16,
+    color: '#333',
   },
   // 메뉴 모달 스타일
   modalOverlay: {
