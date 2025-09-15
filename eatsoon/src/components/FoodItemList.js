@@ -335,6 +335,7 @@ const FoodItemList = ({ onItemDeleted, refreshTrigger, initialFilter = null }) =
     }
   };
 
+<<<<<<< HEAD
   // 보관 방법 아이콘 가져오기
   const getStorageIcon = (storageType) => {
     switch (storageType) {
@@ -419,6 +420,11 @@ const FoodItemList = ({ onItemDeleted, refreshTrigger, initialFilter = null }) =
         </View>
       </View>
       
+=======
+  // 헤더 컴포넌트 (버튼만)
+  const renderHeader = () => (
+    <View style={styles.header}>
+>>>>>>> c80437fa78717037afb478adf4ee109291017435
       <View style={styles.headerButtons}>
         <TouchableOpacity style={styles.addButton} onPress={handleAddPress}>
           <Ionicons name="add-circle" size={22} color={Colors.textInverse} />
@@ -712,17 +718,29 @@ const FoodItemList = ({ onItemDeleted, refreshTrigger, initialFilter = null }) =
 
 const styles = {
   header: {
+<<<<<<< HEAD
     paddingHorizontal: 20,
     paddingTop: 0,
     paddingBottom: 8,
     backgroundColor: '#f8f9fa',
+=======
+    paddingHorizontal: Theme.spacing.lg,
+    paddingTop: 0,
+    paddingBottom: Theme.spacing.md,
+    alignItems: 'center',
+>>>>>>> c80437fa78717037afb478adf4ee109291017435
   },
   headerButtons: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+<<<<<<< HEAD
     marginTop: 4,
     gap: 16,
+=======
+    marginTop: 0,
+    gap: Theme.spacing.sm,
+>>>>>>> c80437fa78717037afb478adf4ee109291017435
   },
   addButton: {
     backgroundColor: Colors.primary,
@@ -769,7 +787,11 @@ const styles = {
   listContainer: {
     flexGrow: 1,
     paddingHorizontal: Theme.spacing.md,
+<<<<<<< HEAD
     paddingTop: Theme.spacing.sm,
+=======
+    paddingTop: 0,
+>>>>>>> c80437fa78717037afb478adf4ee109291017435
   },
   foodCard: {
     marginBottom: 8,

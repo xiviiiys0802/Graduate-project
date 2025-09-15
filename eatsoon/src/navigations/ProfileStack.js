@@ -1,13 +1,10 @@
-// SettingsStack.js
+// ProfileStack.js
 
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { TouchableOpacity } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import MoreScreen from '../screens/MoreScreen';
-import RecipeRecommendationScreen from '../screens/RecipeRecommendationScreen';
-import RecipeDetailScreen from '../screens/RecipeDetailScreen';
-import ShoppingListScreen from '../screens/ShoppingListScreen';
+import ProfileScreen from '../screens/ProfileScreen';
+import NotificationHistoryScreen from '../screens/NotificationHistoryScreen';
+import StatisticsReportScreen from '../screens/StatisticsReportScreen';
 import ProfileEditScreen from '../screens/ProfileEditScreen';
 import PrivacyScreen from '../screens/PrivacyScreen';
 import PrivacyPolicyScreen from '../screens/PrivacyPolicyScreen';
@@ -16,22 +13,14 @@ import HelpScreen from '../screens/HelpScreen';
 
 const Stack = createNativeStackNavigator();
 
-export default function SettingsStack() {
-    console.log('✅ SettingsStack loaded'); 
-    return (
-    <Stack.Navigator initialRouteName="More">
-<<<<<<< HEAD
-      <Stack.Screen name="More" component={MoreScreen} />
-      <Stack.Screen name="RecipeRecommendation" component={RecipeRecommendationScreen} />
-      <Stack.Screen name="RecipeDetail" component={RecipeDetailScreen} />
-      <Stack.Screen name="ShoppingList" component={ShoppingListScreen} />
+export default function ProfileStack() {
+  return (
+    <Stack.Navigator initialRouteName="ProfileMain">
       <Stack.Screen 
-=======
-      <Stack.Screen 
-        name="More" 
-        component={MoreScreen}
+        name="ProfileMain" 
+        component={ProfileScreen}
         options={{ 
-          title: '더보기',
+          title: '프로필',
           headerStyle: {
             backgroundColor: '#f8f9fa',
           },
@@ -41,15 +30,35 @@ export default function SettingsStack() {
           },
         }}
       />
-      <Stack.Screen name="RecipeRecommendation" component={RecipeRecommendationScreen} />
       <Stack.Screen 
-        name="RecipeDetail" 
-        component={RecipeDetailScreen}
-        options={{ headerShown: false }}
+        name="NotificationHistory" 
+        component={NotificationHistoryScreen}
+        options={{ 
+          title: '알림 히스토리',
+          headerStyle: {
+            backgroundColor: '#f8f9fa',
+          },
+          headerTintColor: '#333',
+          headerTitleStyle: {
+            fontWeight: '600',
+          },
+        }}
       />
-      <Stack.Screen name="ShoppingList" component={ShoppingListScreen} />
       <Stack.Screen 
->>>>>>> c80437fa78717037afb478adf4ee109291017435
+        name="StatisticsReport" 
+        component={StatisticsReportScreen}
+        options={{ 
+          title: '사용 통계',
+          headerStyle: {
+            backgroundColor: '#f8f9fa',
+          },
+          headerTintColor: '#333',
+          headerTitleStyle: {
+            fontWeight: '600',
+          },
+        }}
+      />
+      <Stack.Screen 
         name="ProfileEdit" 
         component={ProfileEditScreen}
         options={{ headerShown: false }}
