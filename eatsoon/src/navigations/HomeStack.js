@@ -12,43 +12,34 @@ const HomeStack = () => {
     <Stack.Navigator>
       <Stack.Screen 
         name="HomeMain" 
-        component={HomeScreen}
-        options={{
-          headerShown: false
-        }}
+        component={HomeScreen} 
+        options={{ 
+          headerShown: false 
+        }} 
       />
       <Stack.Screen 
         name="CompactView" 
-        component={CompactViewScreen}
-        options={{
+        component={CompactViewScreen} 
+        options={{ 
           title: '컴팩트 뷰',
-          headerStyle: {
-            backgroundColor: '#4f62c0',
-          },
-          headerTintColor: '#fff',
-        }}
+          headerShown: true 
+        }} 
       />
       <Stack.Screen 
         name="StatisticsReport" 
-        component={StatisticsReportScreen}
-        options={{
+        component={StatisticsReportScreen} 
+        options={{ 
           title: '사용 통계',
-          headerStyle: {
-            backgroundColor: '#4f62c0',
-          },
-          headerTintColor: '#fff',
-        }}
+          headerShown: true 
+        }} 
       />
       <Stack.Screen 
         name="NotificationHistory" 
-        component={NotificationHistoryScreen}
-        options={{
+        component={NotificationHistoryScreen} 
+        options={{ 
           title: '알림 히스토리',
-          headerStyle: {
-            backgroundColor: '#4f62c0',
-          },
-          headerTintColor: '#fff',
-        }}
+          headerShown: true 
+        }} 
       />
     </Stack.Navigator>
   );
