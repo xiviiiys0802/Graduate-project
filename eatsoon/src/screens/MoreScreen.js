@@ -653,7 +653,6 @@ const styles = StyleSheet.create({
     color: '#666',
     marginLeft: 8,
   },
-<<<<<<< Updated upstream
   recipeBox: {
     height: 150,
     marginHorizontal: 16,
@@ -689,6 +688,4 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-=======
->>>>>>> Stashed changes
 });
