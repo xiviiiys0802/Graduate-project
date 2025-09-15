@@ -46,7 +46,7 @@ const SmoothSearchInput = ({
           onBlur={handleBlur}
           returnKeyType="search"
         />
-        {value.length > 0 && (
+        {(value?.length || 0) > 0 && (
           <TouchableOpacity onPress={handleClear} style={styles.clearButton}>
             <Ionicons name="close-circle" size={20} color="#999" />
           </TouchableOpacity>
