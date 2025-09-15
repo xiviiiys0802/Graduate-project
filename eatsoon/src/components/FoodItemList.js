@@ -51,10 +51,10 @@ const FoodItemList = ({ onItemDeleted, refreshTrigger, initialFilter = null }) =
 
   // 검색 및 보관 방법 필터링 함수 (부분 매칭 및 유추 지원)
   const filterItems = (items, query, storageType) => {
-    let filtered = items;
+    let filtered = items || [];
     
     // 검색어 필터링 (부분 매칭 및 유추)
-    if (query.trim()) {
+    if ((query || '').trim()) {
       const searchTerm = query.toLowerCase().trim();
       
       // 정확한 매칭과 부분 매칭을 모두 지원
@@ -183,7 +183,7 @@ const FoodItemList = ({ onItemDeleted, refreshTrigger, initialFilter = null }) =
 
   // 검색어나 보관 방법 변경 시 필터링 및 정렬 적용 (useMemo로 최적화)
   const filteredItems = useMemo(() => {
-    let filtered = filterItems(items, searchQuery, storageFilter);
+    let filtered = filterItems(items || [], searchQuery, storageFilter);
     
     // 정렬 적용
     filtered = [...filtered].sort((a, b) => {
@@ -536,7 +536,7 @@ const FoodItemList = ({ onItemDeleted, refreshTrigger, initialFilter = null }) =
 
   // 빈 상태 컴포넌트
   const renderEmptyComponent = () => {
-    if (searchQuery.trim()) {
+    if ((searchQuery || '').trim()) {
       return (
         <EmptyContainer>
           <View style={styles.emptyIconContainer}>
@@ -544,7 +544,7 @@ const FoodItemList = ({ onItemDeleted, refreshTrigger, initialFilter = null }) =
           </View>
           <EmptyText>검색 결과가 없습니다</EmptyText>
           <Text style={styles.emptySubtext}>
-            "{searchQuery}"에 대한 검색 결과를 찾을 수 없습니다.
+            "{searchQuery || ''}"에 대한 검색 결과를 찾을 수 없습니다.
           </Text>
           <TouchableOpacity style={styles.clearSearchButton} onPress={handleClearSearch}>
             <Text style={styles.clearSearchButtonText}>검색 초기화</Text>
