@@ -63,14 +63,14 @@ export default function NotificationHistoryScreen() {
       // 전체 알림 저장 (필터와 관계없이)
       setAllNotifications(history);
       
-      console.log('[DEBUG] 전체 알림 개수:', history.length);
+      console.log('[DEBUG] 전체 알림 개수:', history?.length || 0);
       console.log('[DEBUG] 선택된 필터:', selectedFilter);
       
       // 필터 적용
       let filteredHistory = history;
       if (selectedFilter && selectedFilter !== 'all') {
         filteredHistory = filterNotificationsByType(history, selectedFilter);
-        console.log('[DEBUG] 필터링된 알림 개수:', filteredHistory.length);
+        console.log('[DEBUG] 필터링된 알림 개수:', filteredHistory?.length || 0);
         console.log('[DEBUG] 필터링된 알림들:', filteredHistory.map(n => ({ type: n.type, title: n.title })));
       }
       
@@ -79,7 +79,7 @@ export default function NotificationHistoryScreen() {
       setGroupedNotifications(groupNotificationsByDate(filteredHistory));
       
       // 읽지 않은 알림 개수 업데이트 (전체 알림 기준)
-      const count = history.filter(notification => !notification.read).length;
+      const count = (history?.filter(notification => !notification.read) || []).length;
       setUnreadCount(count);
     } catch (error) {
       console.error('알림 히스토리 불러오기 실패:', error);
@@ -207,6 +207,10 @@ export default function NotificationHistoryScreen() {
         return '📦';
       case 'daily':
         return '📅';
+      case 'smart':
+        return '🧠';
+      case 'recipe':
+        return '👨‍🍳';
       default:
         return '🔔';
     }
@@ -220,6 +224,10 @@ export default function NotificationHistoryScreen() {
         return Colors.warning;
       case 'daily':
         return Colors.success;
+      case 'smart':
+        return Colors.info;
+      case 'recipe':
+        return Colors.primary;
       default:
         return Colors.info;
     }
@@ -233,6 +241,10 @@ export default function NotificationHistoryScreen() {
         return '재고부족';
       case 'daily':
         return '일일알림';
+      case 'smart':
+        return '스마트알림';
+      case 'recipe':
+        return '요리추천';
       default:
         return '전체';
     }
@@ -285,7 +297,7 @@ export default function NotificationHistoryScreen() {
             styles.filterButtonText,
             selectedFilter === 'all' && styles.filterButtonTextActive
           ]}>
-            전체 ({allNotifications.length})
+            전체 ({allNotifications?.length || 0})
           </Text>
         </TouchableOpacity>
         
@@ -300,7 +312,7 @@ export default function NotificationHistoryScreen() {
             styles.filterButtonText,
             selectedFilter === 'expiry' && styles.filterButtonTextActive
           ]}>
-            유통기한 ({filterNotificationsByType(allNotifications, 'expiry').length})
+            유통기한 ({(filterNotificationsByType(allNotifications, 'expiry') || []).length})
           </Text>
         </TouchableOpacity>
         
@@ -315,7 +327,7 @@ export default function NotificationHistoryScreen() {
             styles.filterButtonText,
             selectedFilter === 'stock' && styles.filterButtonTextActive
           ]}>
-            재고부족 ({filterNotificationsByType(allNotifications, 'stock').length})
+            재고부족 ({(filterNotificationsByType(allNotifications, 'stock') || []).length})
           </Text>
         </TouchableOpacity>
         
@@ -330,7 +342,67 @@ export default function NotificationHistoryScreen() {
             styles.filterButtonText,
             selectedFilter === 'daily' && styles.filterButtonTextActive
           ]}>
-            일일알림 ({filterNotificationsByType(allNotifications, 'daily').length})
+            일일알림 ({(filterNotificationsByType(allNotifications, 'daily') || []).length})
+          </Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity
+          style={[
+            styles.filterButton,
+            selectedFilter === 'smart' && styles.filterButtonActive
+          ]}
+          onPress={() => handleFilterChange('smart')}
+        >
+          <Text style={[
+            styles.filterButtonText,
+            selectedFilter === 'smart' && styles.filterButtonTextActive
+          ]}>
+            스마트알림 ({(filterNotificationsByType(allNotifications, 'smart') || []).length})
+          </Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity
+          style={[
+            styles.filterButton,
+            selectedFilter === 'recipe' && styles.filterButtonActive
+          ]}
+          onPress={() => handleFilterChange('recipe')}
+        >
+          <Text style={[
+            styles.filterButtonText,
+            selectedFilter === 'recipe' && styles.filterButtonTextActive
+          ]}>
+            요리추천 ({(filterNotificationsByType(allNotifications, 'recipe') || []).length})
+          </Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity
+          style={[
+            styles.filterButton,
+            selectedFilter === 'smart' && styles.filterButtonActive
+          ]}
+          onPress={() => handleFilterChange('smart')}
+        >
+          <Text style={[
+            styles.filterButtonText,
+            selectedFilter === 'smart' && styles.filterButtonTextActive
+          ]}>
+            스마트알림 ({filterNotificationsByType(allNotifications, 'smart').length})
+          </Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity
+          style={[
+            styles.filterButton,
+            selectedFilter === 'recipe' && styles.filterButtonActive
+          ]}
+          onPress={() => handleFilterChange('recipe')}
+        >
+          <Text style={[
+            styles.filterButtonText,
+            selectedFilter === 'recipe' && styles.filterButtonTextActive
+          ]}>
+            요리추천 ({filterNotificationsByType(allNotifications, 'recipe').length})
           </Text>
         </TouchableOpacity>
       </ScrollView>
@@ -382,7 +454,7 @@ export default function NotificationHistoryScreen() {
           </View>
         }
         ListHeaderComponent={
-          notifications.length > 0 ? (
+          (notifications?.length || 0) > 0 ? (
             <View style={styles.listHeader}>
               <View style={styles.headerActions}>
                 <TouchableOpacity style={styles.headerButton} onPress={handleMarkAllAsRead}>
@@ -395,7 +467,7 @@ export default function NotificationHistoryScreen() {
                 </TouchableOpacity>
               </View>
               <Text style={styles.notificationCount}>
-                총 {notifications.length}개의 알림
+                총 {notifications?.length || 0}개의 알림
                 {unreadCount > 0 && ` (읽지 않은 ${unreadCount}개)`}
               </Text>
             </View>

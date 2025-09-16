@@ -24,7 +24,7 @@ class GoogleSpeechAPI {
         const reader = new FileReader();
         reader.onload = () => {
           const base64 = reader.result.split(',')[1];
-          console.log('오디오 인코딩 완료, 길이:', base64.length);
+          console.log('오디오 인코딩 완료, 길이:', base64?.length || 0);
           resolve(base64);
         };
         reader.onerror = (error) => {
@@ -58,7 +58,7 @@ class GoogleSpeechAPI {
       // 오디오를 base64로 변환
       console.log('오디오 인코딩 시작...');
       const audioContent = await this.audioToBase64(audioUri);
-      console.log('오디오 인코딩 완료, 길이:', audioContent.length);
+      console.log('오디오 인코딩 완료, 길이:', audioContent?.length || 0);
       
       // API 요청 데이터
       const requestData = {
@@ -153,7 +153,7 @@ class GoogleSpeechAPI {
       "생강 100g"
     ];
     
-    const randomResult = mockResults[Math.floor(Math.random() * mockResults.length)];
+    const randomResult = mockResults[Math.floor(Math.random() * (mockResults?.length || 1))];
     console.log('시뮬레이션 결과:', randomResult);
     return randomResult;
   }

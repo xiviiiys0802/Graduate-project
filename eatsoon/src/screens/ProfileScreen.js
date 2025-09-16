@@ -18,8 +18,9 @@ import * as ImagePicker from 'expo-image-picker';
 import { useNavigation } from '@react-navigation/native';
 import { storage } from '../config/firebase';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, Theme } from '../utils/colors';
 import StatisticsService from '../services/statisticsService';
+import { getUnreadNotificationCount } from '../utils/notificationHistory';
+import { Colors, Theme } from '../utils/colors';
 import { useFocusEffect } from '@react-navigation/native';
 import { loadFoodItemsFromFirestore } from '../utils/firebaseStorage';
 import { 
@@ -63,54 +64,14 @@ export default function ProfileScreen() {
 
   const loadStatistics = async () => {
     try {
-      // 실제 음식 아이템 데이터를 기반으로 통계 계산
-      const foodItems = await loadFoodItemsFromFirestore();
+      const stats = await StatisticsService.getRealtimeSummary();
+      // 안읽은 알림 개수 가져오기
+      const unreadCount = await getUnreadNotificationCount();
       
-      // 유통기한 임박 아이템 계산 (3일 이내)
-      const today = new Date();
-      const expiringSoonItems = foodItems.filter(item => {
-        const expiryDate = new Date(item.expirationDate);
-        const daysUntilExpiry = Math.ceil((expiryDate - today) / (1000 * 60 * 60 * 24));
-        return daysUntilExpiry <= 3 && daysUntilExpiry >= 0;
-      }).length;
-      
-      // 만료된 아이템 계산
-      const expiredItems = foodItems.filter(item => {
-        const expiryDate = new Date(item.expirationDate);
-        const daysUntilExpiry = Math.ceil((expiryDate - today) / (1000 * 60 * 60 * 24));
-        return daysUntilExpiry < 0;
-      }).length;
-      
-      // 이번 주 읽지 않은 알림 개수 계산
-      const { getNotificationHistory } = await import('../utils/notificationHistory');
-      const allNotifications = await getNotificationHistory();
-      const thisWeek = new Date();
-      thisWeek.setDate(thisWeek.getDate() - 7); // 7일 전
-      
-      const unreadThisWeek = allNotifications.filter(notification => {
-        const notificationDate = new Date(notification.timestamp);
-        return !notification.read && notificationDate >= thisWeek;
-      }).length;
-      
-      // 기존 통계에서 알림 관련 데이터만 가져오기
-      const existingStats = await StatisticsService.getSummary();
-      
-      const realTimeStats = {
-        totalFoodItems: foodItems.length,
-        expiringSoonItems: expiringSoonItems,
-        expiredItems: expiredItems,
-        notificationsSent: unreadThisWeek, // 이번 주 읽지 않은 알림으로 변경
-        notificationsReceived: existingStats.notificationsReceived || 0,
-        weeklyFoodAdded: existingStats.weeklyFoodAdded || 0,
-        monthlyFoodAdded: existingStats.monthlyFoodAdded || 0,
-        mostAddedCategory: existingStats.mostAddedCategory || '',
-      };
-      
-      setStatistics(realTimeStats);
-      
-      // 통계 서비스도 업데이트
-      await StatisticsService.updateExpiringItems(expiringSoonItems);
-      await StatisticsService.updateExpiredItems(expiredItems);
+      setStatistics({
+        ...stats,
+        notificationsSent: unreadCount, // 안읽은 알림으로 변경
+      });
     } catch (error) {
       console.error('통계 로드 실패:', error);
       // 실패 시 기본값 설정
@@ -159,7 +120,7 @@ export default function ProfileScreen() {
         quality: 0.7,
       });
 
-      if (!result.canceled && result.assets && result.assets.length > 0) {
+      if (!result.canceled && result.assets && (result.assets?.length || 0) > 0) {
         const imageUri = result.assets[0].uri;
         await uploadImageToFirebase(imageUri);
       }
@@ -290,18 +251,32 @@ export default function ProfileScreen() {
 
         {/* 통계 카드 */}
         <View style={styles.statsContainer}>
-          <Card style={styles.statCard}>
+          <TouchableOpacity 
+            style={styles.statCard}
+            onPress={() => navigation.navigate('Home')}
+            activeOpacity={0.7}
+          >
             <Text style={styles.statNumber}>{statistics?.totalFoodItems || 0}</Text>
             <Text style={styles.statLabel}>등록된 음식</Text>
-          </Card>
-          <Card style={styles.statCard}>
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={styles.statCard}
+            onPress={() => navigation.navigate('Home', { filter: 'expiring' })}
+            activeOpacity={0.7}
+          >
             <Text style={styles.statNumber}>{statistics?.expiringSoonItems || 0}</Text>
             <Text style={styles.statLabel}>유통기한 임박</Text>
-          </Card>
-          <Card style={styles.statCard}>
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={styles.statCard}
+            onPress={() => navigation.navigate('NotificationHistory')}
+            activeOpacity={0.7}
+          >
             <Text style={styles.statNumber}>{statistics?.notificationsSent || 0}</Text>
-            <Text style={styles.statLabel}>이번 주 알림</Text>
-          </Card>
+            <Text style={styles.statLabel}>안읽은 알림</Text>
+          </TouchableOpacity>
         </View>
 
         {/* 설정 메뉴 */}
@@ -467,6 +442,9 @@ const styles = StyleSheet.create({
     marginHorizontal: Theme.spacing.xs,
     padding: Theme.spacing.md,
     alignItems: 'center',
+    backgroundColor: Colors.surface,
+    borderRadius: Theme.borderRadius.lg,
+    ...Theme.shadows.small,
   },
   statNumber: {
     fontSize: Theme.typography.h2.fontSize,

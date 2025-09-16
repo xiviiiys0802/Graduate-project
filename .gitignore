@@ -1,0 +1,24 @@
+# Secrets
+firebase-credentials.json
+*.pem
+*.p12
+*.key
+*.keystore
+
+# Python
+__pycache__/
+*.pyc
+.env
+.env.*
+
+# Node/Expo
+node_modules/
+.expo/
+.npmrc
+
+# OS/Editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
