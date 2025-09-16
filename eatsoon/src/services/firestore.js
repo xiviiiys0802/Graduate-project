@@ -23,13 +23,27 @@ export function subscribePantry(callback) {
 export async function fetchRecipesOnce() {
   const snap = await getDocs(collection(db, 'recipes'));
   const arr = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  
+  // 크롤링된 레시피만 필터링 (ID가 'crawled_'로 시작하는 것들)
+  const crawledRecipes = arr.filter(r => r.id.startsWith('crawled_'));
+  
+  console.log(`📊 Firebase에서 가져온 레시피: ${arr.length}개`);
+  console.log(`📊 크롤링된 레시피: ${crawledRecipes.length}개`);
+  
   const nameToRecipe = new Map();
-  for (const r of arr) {
+  for (const r of crawledRecipes) {
     const key = normalize(r.name || '');
     const prev = nameToRecipe.get(key);
     if (!prev) nameToRecipe.set(key, r);
   }
-  return Array.from(nameToRecipe.values());
+  
+  const result = Array.from(nameToRecipe.values());
+  console.log(`📊 최종 반환할 레시피: ${result.length}개`);
+  result.forEach((r, index) => {
+    console.log(`  ${index + 1}. ${r.name} (ID: ${r.id})`);
+  });
+  
+  return result;
 }
 
 export async function seedRecipesIfEmpty() {
@@ -86,6 +100,44 @@ export async function dedupeRecipesByName() {
     for (let i = 1; i < (items?.length || 0); i++) deletions.push(deleteDoc(items[i].ref));
   }
   if ((deletions?.length || 0)) await Promise.all(deletions);
+}
+
+export async function clearAllRecipes() {
+  try {
+    const snap = await getDocs(collection(db, 'recipes'));
+    const deletions = [];
+    
+    for (const docSnapshot of snap.docs) {
+      deletions.push(deleteDoc(docSnapshot.ref));
+    }
+    
+    if (deletions.length > 0) {
+      await Promise.all(deletions);
+      console.log(`🗑️ 기존 레시피 ${deletions.length}개 삭제 완료`);
+    } else {
+      console.log('📭 삭제할 기존 레시피가 없습니다');
+    }
+  } catch (error) {
+    console.error('❌ 레시피 삭제 실패:', error);
+  }
+}
+
+export async function addCrawledRecipes() {
+  console.warn('⚠️ addCrawledRecipes 비활성화: 로컬 data 파일 제거됨. 최신 크롤러를 사용하세요.');
+}
+
+export async function replaceWithCrawledRecipes() {
+  console.warn('⚠️ replaceWithCrawledRecipes 비활성화: 로컬 data 파일 제거됨. 최신 크롤러를 사용하세요.');
+}
+
+export async function addMassiveCrawledRecipes() {
+  try {
+    console.log('📝 대규모 크롤링된 레시피 추가 중...');
+    console.log('⚠️ 지원 종료된 기능입니다. 최신 크롤러를 사용해 주세요.');
+  } catch (error) {
+    console.error('❌ 대규모 레시피 추가 실패:', error);
+    throw error;
+  }
 }
 
 

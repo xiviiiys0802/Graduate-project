@@ -22,22 +22,49 @@ function itemsCollectionRef() {
   return collection(db, `users/${uid}/shopping_list`);
 }
 
-// Add a single item
+// Add a single item (with quantity merging for same names)
 export async function addItem(name, quantity = 1, unit = '개') {
   const colRef = itemsCollectionRef();
-  const id = doc(colRef).id;
+  const trimmedName = name.trim();
+  const trimmedUnit = unit.trim();
+  const numQuantity = Number(quantity);
   
-  await setDoc(doc(colRef, id), {
-    name: name.trim(),
-    quantity: Number(quantity),
-    unit: unit.trim(),
-    checked: false,
-    fromRecipeId: null,
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
+  // Check if item with same name already exists
+  const existingItems = await getDocs(colRef);
+  const existingItem = existingItems.docs.find(doc => {
+    const data = doc.data();
+    return data.name === trimmedName && data.unit === trimmedUnit;
   });
   
-  return id;
+  if (existingItem) {
+    // Update existing item quantity
+    const currentQuantity = existingItem.data().quantity || 0;
+    const newQuantity = currentQuantity + numQuantity;
+    
+    await updateDoc(doc(colRef, existingItem.id), {
+      quantity: newQuantity,
+      updatedAt: serverTimestamp(),
+    });
+    
+    console.log(`📝 기존 재료 수량 업데이트: ${trimmedName} (${currentQuantity} + ${numQuantity} = ${newQuantity}${trimmedUnit})`);
+    return existingItem.id;
+  } else {
+    // Create new item
+    const id = doc(colRef).id;
+    
+    await setDoc(doc(colRef, id), {
+      name: trimmedName,
+      quantity: numQuantity,
+      unit: trimmedUnit,
+      checked: false,
+      fromRecipeId: null,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+    
+    console.log(`➕ 새 재료 추가: ${trimmedName} (${numQuantity}${trimmedUnit})`);
+    return id;
+  }
 }
 
 // Toggle check status
