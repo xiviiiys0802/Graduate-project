@@ -757,7 +757,7 @@ const styles = {
   },
   headerButtons: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     alignItems: 'center',
     marginTop: 4,
     marginBottom: 12,
@@ -770,8 +770,8 @@ const styles = {
     paddingHorizontal: Theme.spacing.xl + 4,
     paddingVertical: Theme.spacing.md,
     borderRadius: Theme.borderRadius.lg,
-    flex: 1,
     justifyContent: 'center',
+    minWidth: 120,
     ...Theme.shadows.medium,
   },
   addButtonText: {
