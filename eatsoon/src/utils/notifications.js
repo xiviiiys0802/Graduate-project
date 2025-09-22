@@ -11,6 +11,32 @@ import { saveNotificationHistory } from './notificationHistory';
 import StatisticsService from '../services/statisticsService';
 
 const db = getFirestore(); // Firestore 인스턴스
+// 공통 스케줄러: 플랫폼/Expo 권장 포맷으로 안전하게 예약
+async function scheduleAtDate(dateOrNull, content, fireNow = false) {
+  try {
+    if (fireNow || !dateOrNull) {
+      return await Notifications.scheduleNotificationAsync({
+        content,
+        trigger: { seconds: 1 },
+      });
+    }
+
+    const trigger = { type: 'date', date: dateOrNull };
+    return await Notifications.scheduleNotificationAsync({ content, trigger });
+  } catch (e) {
+    console.error('알림 스케줄 실패:', e?.message || e);
+    // 폴백: 날짜 객체 직접 전달 (Expo Go 등 환경 차이 대응)
+    try {
+      return await Notifications.scheduleNotificationAsync({
+        content,
+        trigger: dateOrNull,
+      });
+    } catch (e2) {
+      console.error('알림 스케줄 폴백도 실패:', e2?.message || e2);
+      return null;
+    }
+  }
+}
 
 // ✅ 알림 권한 요청만 따로 분리한 함수
 export async function requestNotificationPermission() {
@@ -105,6 +131,26 @@ export async function registerForPushNotificationsAsync() {
 
 // ✅ 알림 스케줄링 함수들
 
+// 공통: 다양한 날짜 입력을 안전하게 Date로 변환
+function parseAnyDate(input) {
+  if (!input) return null;
+  if (input instanceof Date) return new Date(input.getFullYear(), input.getMonth(), input.getDate());
+  if (typeof input === 'number') return new Date(input);
+  const s = String(input);
+  // ISO like "2025-09-23" or "2025-09-23T12:34:56.000Z"
+  if (s.includes('T')) {
+    const d = new Date(s);
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  }
+  const parts = s.split('-').map(Number);
+  if (parts.length >= 3) {
+    return new Date(parts[0], parts[1] - 1, parts[2]);
+  }
+  const d = new Date(s);
+  if (isNaN(d.getTime())) return null;
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+}
+
 // 유통기한 알림 예약
 export async function scheduleExpiryNotification(foodItem) {
   try {
@@ -122,33 +168,28 @@ export async function scheduleExpiryNotification(foodItem) {
       return null;
     }
 
-    // 날짜 문자열을 안전하게 파싱 (YYYY-MM-DD 형식)
-    const parseDate = (dateString) => {
-      const [year, month, day] = dateString.split('-').map(Number);
-      return new Date(year, month - 1, day); // month는 0부터 시작
-    };
-    
+    // 알림 시간 설정 파싱 (예: '09:00')
+    const [hh, mm] = String(settings.dailyTime || '09:00').split(':').map(v => parseInt(v, 10));
+
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const expiryDateOnly = parseDate(foodItem.expirationDate);
+    const expiryDateOnly = parseAnyDate(foodItem.expirationDate);
+    if (!expiryDateOnly || isNaN(expiryDateOnly.getTime())) {
+      console.log('유통기한 날짜 파싱 실패로 예약 스킵:', foodItem.name, foodItem.expirationDate);
+      return null;
+    }
     
-    // 유통기한이 이미 지났으면 알림 예약하지 않음
-    if (expiryDateOnly <= today) {
+    // 유통기한이 이미 지났으면 알림 예약하지 않음 (당일은 허용)
+    if (expiryDateOnly < today) {
       return null;
     }
 
-    // 중복 알림 방지를 위한 키 생성
+    // 기존 예약 제거(중복 방지)
+    await cancelFoodNotifications(foodItem.id);
+
+    // 중복 알림 방지 키 (즉시 발송 시에만 적용)
     const duplicateKey = `expiry_${foodItem.id}`;
     const lastNotificationTime = await AsyncStorage.getItem(duplicateKey);
-    
-    // 같은 음식에 대해 24시간 내에 이미 알림을 보냈다면 스킵
-    if (lastNotificationTime) {
-      const timeDiff = now.getTime() - parseInt(lastNotificationTime);
-      if (timeDiff < 24 * 60 * 60 * 1000) { // 24시간
-        console.log(`중복 유통기한 알림 방지: ${foodItem.name}`);
-        return null;
-      }
-    }
 
     console.log(`유통기한 알림 계산: ${foodItem.name}`);
     console.log(`유통기한: ${foodItem.expirationDate}`);
@@ -160,22 +201,21 @@ export async function scheduleExpiryNotification(foodItem) {
     let closestDays = Infinity;
 
     for (const days of settings.expiryDays) {
-      // 더 안전한 날짜 계산: 밀리초 단위로 계산 후 날짜로 변환
-      const triggerTime = expiryDateOnly.getTime() - (days * 24 * 60 * 60 * 1000);
-      const triggerDate = new Date(triggerTime);
-      
-      // 날짜만 비교하기 위해 시간을 00:00:00으로 설정
-      const triggerDateOnly = new Date(triggerDate.getFullYear(), triggerDate.getMonth(), triggerDate.getDate());
+      // 목표 날짜 계산 후 사용자가 설정한 시간으로 맞춤
+      const target = new Date(expiryDateOnly.getTime() - (days * 24 * 60 * 60 * 1000));
+      const triggerDateOnly = new Date(target.getFullYear(), target.getMonth(), target.getDate(), hh || 9, mm || 0, 0, 0);
       
       console.log(`${days}일 전 알림 시점: ${triggerDateOnly.toISOString().split('T')[0]}`);
       
-      // 과거 시간이면 스킵
-      if (triggerDateOnly <= today) {
+      const isSameDay = triggerDateOnly.getFullYear() === now.getFullYear() && triggerDateOnly.getMonth() === now.getMonth() && triggerDateOnly.getDate() === now.getDate();
+      const isPastNow = triggerDateOnly.getTime() <= now.getTime();
+      // 오늘이고 설정 시각을 이미 지나쳤다면, 즉시 알림 대상으로 간주
+      if (!isSameDay && isPastNow) {
         console.log(`과거 시간이므로 스킵: ${days}일 전`);
         continue;
       }
 
-      const daysUntilTrigger = Math.ceil((triggerDateOnly - today) / (1000 * 60 * 60 * 24));
+      const daysUntilTrigger = Math.ceil((new Date(triggerDateOnly.getFullYear(), triggerDateOnly.getMonth(), triggerDateOnly.getDate()) - today) / (1000 * 60 * 60 * 24));
       console.log(`알림까지 남은 일수: ${daysUntilTrigger}일`);
       
       // 가장 가까운 시점 찾기
@@ -184,6 +224,7 @@ export async function scheduleExpiryNotification(foodItem) {
         closestNotification = {
           days,
           triggerDate: triggerDateOnly,
+          fireNow: isSameDay && isPastNow,
           title: days === 0 ? '유통기한 만료 알림' : '유통기한 임박 알림',
           body: days === 0 
             ? `${foodItem.name}의 유통기한이 오늘입니다.`
@@ -197,30 +238,40 @@ export async function scheduleExpiryNotification(foodItem) {
 
     // 가장 가까운 알림만 예약
     if (closestNotification) {
-      const identifier = await Notifications.scheduleNotificationAsync({
-        content: {
-          title: closestNotification.title,
-          body: closestNotification.body,
-          data: { 
-            type: 'expiry',
-            foodId: foodItem.id,
-            foodName: foodItem.name,
-            daysLeft: closestNotification.days
-          },
-          sound: settings.soundEnabled === true,
-          vibrationPattern: settings.vibrationEnabled ? [0, 250, 250, 250] : undefined,
+      // 즉시 발송 중복 방지 (마지막 발송에서 24시간 이내면 스킵)
+      if (closestNotification.fireNow && lastNotificationTime) {
+        const timeDiff = now.getTime() - parseInt(lastNotificationTime);
+        if (timeDiff < 24 * 60 * 60 * 1000) {
+          console.log(`중복 유통기한 알림 방지(즉시): ${foodItem.name}`);
+          return null;
+        }
+      }
+
+      const content = {
+        title: closestNotification.title,
+        body: closestNotification.body,
+        data: {
+          type: 'expiry',
+          foodId: foodItem.id,
+          foodName: foodItem.name,
+          daysLeft: closestNotification.days,
         },
-        trigger: {
-          date: closestNotification.triggerDate,
-        },
-      });
+        sound: settings.soundEnabled === true,
+        vibrationPattern: settings.vibrationEnabled ? [0, 250, 250, 250] : undefined,
+      };
+
+      const identifier = await scheduleAtDate(
+        closestNotification.fireNow ? null : closestNotification.triggerDate,
+        content,
+        closestNotification.fireNow,
+      );
 
       // 알림 히스토리는 실제 발송 시에만 저장 (스케줄링 시에는 저장하지 않음)
       scheduledNotifications.push({
         id: identifier,
         foodId: foodItem.id,
         type: 'expiry',
-        scheduledDate: triggerDate,
+        scheduledDate: closestNotification.triggerDate,
         daysLeft: closestNotification.days
       });
 
@@ -254,15 +305,10 @@ export async function scheduleNextExpiryNotification(foodItem, currentDaysLeft) 
       return null;
     }
 
-    // 날짜 문자열을 안전하게 파싱 (YYYY-MM-DD 형식)
-    const parseDate = (dateString) => {
-      const [year, month, day] = dateString.split('-').map(Number);
-      return new Date(year, month - 1, day); // month는 0부터 시작
-    };
-    
+    const [hh, mm] = String(settings.dailyTime || '09:00').split(':').map(v => parseInt(v, 10));
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const expiryDateOnly = parseDate(foodItem.expirationDate);
+    const expiryDateOnly = parseAnyDate(foodItem.expirationDate);
     
     // 유통기한이 이미 지났으면 알림 예약하지 않음
     if (expiryDateOnly <= today) {
@@ -282,36 +328,32 @@ export async function scheduleNextExpiryNotification(foodItem, currentDaysLeft) 
     const nextDays = remainingNotifications[0];
     
     // 더 안전한 날짜 계산: 밀리초 단위로 계산 후 날짜로 변환
-    const triggerTime = expiryDateOnly.getTime() - (nextDays * 24 * 60 * 60 * 1000);
-    const triggerDate = new Date(triggerTime);
-    
-    // 날짜만 비교하기 위해 시간을 00:00:00으로 설정
-    const triggerDateOnly = new Date(triggerDate.getFullYear(), triggerDate.getMonth(), triggerDate.getDate());
+    const target = new Date(expiryDateOnly.getTime() - (nextDays * 24 * 60 * 60 * 1000));
+    const triggerDateOnly = new Date(target.getFullYear(), target.getMonth(), target.getDate(), hh || 9, mm || 0, 0, 0);
     
     // 과거 시간이면 스킵
-    if (triggerDateOnly <= today) {
+    if (triggerDateOnly.getTime() <= now.getTime()) {
       return null;
     }
 
-    const identifier = await Notifications.scheduleNotificationAsync({
-      content: {
+    const identifier = await scheduleAtDate(
+      triggerDateOnly,
+      {
         title: nextDays === 0 ? '유통기한 만료 알림' : '유통기한 임박 알림',
-        body: nextDays === 0 
+        body: nextDays === 0
           ? `${foodItem.name}의 유통기한이 오늘입니다.`
           : `${foodItem.name}의 유통기한이 ${nextDays}일 남았습니다.`,
-        data: { 
+        data: {
           type: 'expiry',
           foodId: foodItem.id,
           foodName: foodItem.name,
-          daysLeft: nextDays
+          daysLeft: nextDays,
         },
         sound: settings.soundEnabled === true,
         vibrationPattern: settings.vibrationEnabled ? [0, 250, 250, 250] : undefined,
       },
-        trigger: {
-          date: triggerDateOnly,
-        },
-    });
+      false,
+    );
 
     console.log(`다음 유통기한 알림 예약됨: ${foodItem.name} - ${nextDays}일 전`);
     return identifier;

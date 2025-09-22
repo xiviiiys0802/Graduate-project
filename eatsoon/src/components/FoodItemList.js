@@ -328,13 +328,29 @@ const FoodItemList = ({ onItemDeleted, refreshTrigger, initialFilter = null }) =
 
   // 유통기한 상태 계산
   const getExpiryStatus = (expirationDate) => {
-    const expiryDate = new Date(expirationDate);
+    // YYYY-MM-DD를 현지(KST 등 기기) 시간대의 자정으로 파싱
+    const parseLocal = (d) => {
+      if (!d) return null;
+      if (d instanceof Date) return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+      const s = String(d);
+      const [y, m, day] = s.split('T')[0].split('-').map(Number);
+      if (!y || !m || !day) {
+        const dd = new Date(s);
+        return new Date(dd.getFullYear(), dd.getMonth(), dd.getDate());
+      }
+      return new Date(y, m - 1, day);
+    };
+    const expiryDate = parseLocal(expirationDate);
     const now = new Date();
-    const diffTime = expiryDate - now;
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    if (!expiryDate || isNaN(expiryDate.getTime())) {
+      return { status: 'safe', days: 999, color: Colors.success };
+    }
+    const msPerDay = 24 * 60 * 60 * 1000;
+    const diffDays = Math.ceil((expiryDate.getTime() - today.getTime()) / msPerDay);
+
     if (diffDays < 0) return { status: 'expired', days: diffDays, color: Colors.danger };
-    if (diffDays <= 1) return { status: 'urgent', days: diffDays, color: Colors.danger };
+    if (diffDays === 0) return { status: 'urgent', days: 0, color: Colors.danger };
     if (diffDays <= 3) return { status: 'warning', days: diffDays, color: Colors.warning };
     return { status: 'safe', days: diffDays, color: Colors.success };
   };

@@ -9,7 +9,8 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
-import { Swipeable, GestureHandlerRootView } from 'react-native-gesture-handler';
+import { Ionicons } from '@expo/vector-icons';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { 
   addItem, 
   toggleCheck, 
@@ -66,8 +67,33 @@ export default function ShoppingListScreen() {
     }
   };
 
+  // 고기류 재료 식별 함수
+  const isMeatItem = (item) => {
+    const meatKeywords = [
+      '소고기', '돼지고기', '닭고기', '양고기', '오리고기', '쇠고기',
+      '삼겹살', '목살', '갈비', '등심', '안심', '우둔', '사태', '양지',
+      '닭가슴살', '닭다리', '닭봉', '닭날개', '닭안심',
+      '돼지갈비', '돼지등갈비', '돼지목살', '돼지안심', '돼지갈비살',
+      '베이컨', '햄', '소시지', '살라미',
+      '고기', '육류', '정육'
+    ];
+    const itemName = (item.name || '').toLowerCase();
+    return meatKeywords.some(keyword => itemName.includes(keyword));
+  };
+
   const handleUpdateQuantity = async (itemId, currentQuantity, delta) => {
-    const newQuantity = Math.max(1, currentQuantity + delta);
+    const item = items.find(item => item.id === itemId);
+    if (!item) return;
+
+    let newQuantity;
+    if (isMeatItem(item) && item.unit === 'g') {
+      // 고기류는 50g 단위로 조절
+      newQuantity = Math.max(50, currentQuantity + (delta * 50));
+    } else {
+      // 일반 재료는 1개 단위로 조절
+      newQuantity = Math.max(1, currentQuantity + delta);
+    }
+
     try {
       await updateItem(itemId, { quantity: newQuantity });
     } catch (error) {
@@ -76,9 +102,12 @@ export default function ShoppingListScreen() {
   };
 
   const handleDeleteItem = async (itemId) => {
+    const item = items.find(item => item.id === itemId);
+    const itemName = item?.name || '항목';
+    
     Alert.alert(
       '삭제 확인',
-      '이 항목을 삭제하시겠습니까?',
+      `"${itemName}"을(를) 정말 삭제하시겠습니까?`,
       [
         { text: '취소', style: 'cancel' },
         {
@@ -143,31 +172,21 @@ export default function ShoppingListScreen() {
     );
   };
 
-  const renderRightActions = (item) => (
-    <TouchableOpacity
-      style={styles.deleteButton}
-      onPress={() => handleDeleteItem(item.id)}
-    >
-      <Text style={styles.deleteButtonText}>삭제</Text>
-    </TouchableOpacity>
-  );
 
   const renderItem = ({ item }) => (
-    <Swipeable renderRightActions={() => renderRightActions(item)}>
-      <View style={[styles.itemContainer, item.checked && styles.checkedItem]}>
+    <View style={[styles.itemContainer, item.checked && styles.checkedItem]}>
+      <View style={styles.itemContent}>
         <TouchableOpacity
-          style={styles.itemContent}
+          style={styles.itemLeft}
           onPress={() => handleToggleCheck(item.id)}
-          onLongPress={() => handleDeleteItem(item.id)}
         >
-          <View style={styles.itemLeft}>
-            <View style={[styles.checkbox, item.checked && styles.checkedBox]}>
-              {item.checked && <Text style={styles.checkmark}>✓</Text>}
-            </View>
-            <Text style={[styles.itemName, item.checked && styles.checkedText]}>
-              {item.name}
-            </Text>
+          <View style={[styles.checkbox, item.checked && styles.checkedBox]}>
+            {item.checked && <Text style={styles.checkmark}>✓</Text>}
           </View>
+          <Text style={[styles.itemName, item.checked && styles.checkedText]}>
+            {item.name}
+          </Text>
+        </TouchableOpacity>
           
           <View style={styles.quantityControls}>
             <TouchableOpacity
@@ -176,18 +195,23 @@ export default function ShoppingListScreen() {
             >
               <Text style={styles.quantityButtonText}>-</Text>
             </TouchableOpacity>
-            <Text style={styles.quantityText}>{item.quantity}</Text>
+            <Text style={styles.quantityText}>{item.quantity}{item.unit || '개'}</Text>
             <TouchableOpacity
               style={styles.quantityButton}
               onPress={() => handleUpdateQuantity(item.id, item.quantity, 1)}
             >
               <Text style={styles.quantityButtonText}>+</Text>
             </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.deleteButton}
+              onPress={() => handleDeleteItem(item.id)}
+            >
+              <Text style={styles.deleteButtonText}>×</Text>
+            </TouchableOpacity>
           </View>
-        </TouchableOpacity>
+        </View>
       </View>
-    </Swipeable>
-  );
+    );
 
   if (loading) {
     return (
@@ -398,15 +422,19 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   deleteButton: {
-    backgroundColor: '#dc3545',
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#FF6B6B',
     justifyContent: 'center',
     alignItems: 'center',
-    width: 80,
+    marginLeft: 8,
   },
   deleteButtonText: {
-    color: '#fff',
+    color: '#FFFFFF',
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: 'bold',
+    lineHeight: 16,
   },
   emptyContainer: {
     flex: 1,

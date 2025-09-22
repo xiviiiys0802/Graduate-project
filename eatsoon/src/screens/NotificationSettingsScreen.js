@@ -47,6 +47,8 @@ export default function NotificationSettingsScreen() {
       const savedSettings = await loadNotificationSettings();
       console.log('로드된 설정:', savedSettings);
       setSettings(savedSettings);
+      // 선택 모달 초기값을 저장된 값으로 동기화 (예: 2일 전 표시 유지)
+      setTempExpiryDays(savedSettings.expiryDays || [3, 1, 0]);
       setTempThreshold(savedSettings.stockThreshold);
     } catch (error) {
       console.error('설정 불러오기 실패:', error);
@@ -61,6 +63,10 @@ export default function NotificationSettingsScreen() {
     
     try {
       await saveNotificationSettings(newSettings);
+      if (key === 'expiryEnabled' || key === 'dailyTime') {
+        await cancelAllNotifications();
+        await reinitializeNotifications(newSettings);
+      }
     } catch (error) {
       console.error('설정 저장 실패:', error);
       Alert.alert('오류', '설정 저장에 실패했습니다.');
@@ -74,6 +80,9 @@ export default function NotificationSettingsScreen() {
     
     try {
       await saveNotificationSettings(newSettings);
+      // 기존 예약을 모두 취소 후 새로운 시점으로 재예약
+      await cancelAllNotifications();
+      await reinitializeNotifications(newSettings);
       Alert.alert('알림 설정', '유통기한 알림 시점이 변경되었습니다.');
     } catch (error) {
       console.error('유통기한 설정 저장 실패:', error);
@@ -149,91 +158,32 @@ export default function NotificationSettingsScreen() {
     try {
       // 모든 기존 알림 완전 취소
       await cancelAllNotifications();
-      
-      // AsyncStorage에서 중복 방지 키들도 모두 삭제
+
+      // 중복 방지 키 제거
       const foodItems = await loadFoodItemsFromFirestore() || [];
       for (const item of foodItems) {
         await AsyncStorage.removeItem(`expiry_${item.id}`);
         await AsyncStorage.removeItem(`stock_${item.id}_${item.quantity}`);
       }
-      
-      console.log('모든 알림과 중복 방지 키가 완전히 삭제되었습니다.');
-      
-      // 새로운 로직으로 알림 재설정
+
+      // 테스트 편의를 위해 dailyTime을 현재 시각 + 1분으로 일시 조정 후 저장
+      const now = new Date();
+      const nextMinute = new Date(now.getTime() + 60 * 1000);
+      const hh = String(nextMinute.getHours()).padStart(2, '0');
+      const mm = String(nextMinute.getMinutes()).padStart(2, '0');
+      const current = await loadNotificationSettings();
+      const overridden = { ...current, dailyTime: `${hh}:${mm}` };
+      await saveNotificationSettings(overridden);
+
+      // 새 로직으로 간단히 재예약: 각 아이템에 대해 표준 스케줄러 호출만 수행
       for (const item of foodItems) {
-        console.log(`=== ${item.name} 알림 재설정 ===`);
-        console.log(`유통기한 원본: ${item.expirationDate}`);
-        
-        // 날짜 파싱
-        const [year, month, day] = item.expirationDate.split('-').map(Number);
-        const expiryDate = new Date(year, month - 1, day);
-        const today = new Date();
-        const todayOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-        const expiryOnly = new Date(expiryDate.getFullYear(), expiryDate.getMonth(), expiryDate.getDate());
-        
-        const diffTime = expiryOnly - todayOnly;
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        
-        console.log(`오늘: ${todayOnly.toDateString()}`);
-        console.log(`유통기한: ${expiryOnly.toDateString()}`);
-        console.log(`남은 일수: ${diffDays}일`);
-        
-        // 유통기한이 지났거나 오늘이면 알림 예약하지 않음
-        if (diffDays <= 0) {
-          console.log(`${item.name}: 유통기한이 지났거나 오늘이므로 알림 예약하지 않음`);
-          continue;
-        }
-        
-        // 설정된 알림 시점 중에서 가장 가까운 것만 예약
-        const settings = await loadNotificationSettings();
-        let closestNotification = null;
-        let closestDays = Infinity;
-        
-        for (const days of settings.expiryDays) {
-          // 더 안전한 날짜 계산: 밀리초 단위로 계산 후 날짜로 변환
-          const triggerTime = expiryOnly.getTime() - (days * 24 * 60 * 60 * 1000);
-          const triggerDate = new Date(triggerTime);
-          const triggerDateOnly = new Date(triggerDate.getFullYear(), triggerDate.getMonth(), triggerDate.getDate());
-          
-          console.log(`${days}일 전 알림 시점: ${triggerDateOnly.toDateString()}`);
-          
-          // 과거 시간이면 스킵
-          if (triggerDateOnly <= todayOnly) {
-            console.log(`과거 시간이므로 스킵: ${days}일 전`);
-            continue;
-          }
-          
-          const daysUntilTrigger = Math.ceil((triggerDateOnly - todayOnly) / (1000 * 60 * 60 * 24));
-          console.log(`알림까지 남은 일수: ${daysUntilTrigger}일`);
-          
-          if (daysUntilTrigger < closestDays) {
-            closestDays = daysUntilTrigger;
-            closestNotification = {
-              days,
-              triggerDate: triggerDateOnly,
-              title: days === 0 ? '유통기한 만료 알림' : '유통기한 임박 알림',
-              body: days === 0 
-                ? `${item.name}의 유통기한이 오늘입니다.`
-                : `${item.name}의 유통기한이 ${days}일 남았습니다.`
-            };
-            console.log(`가장 가까운 알림으로 설정: ${days}일 전`);
-          }
-        }
-        
-        if (closestNotification) {
-          console.log(`${item.name}: ${closestNotification.days}일 전 알림 예약 (${closestNotification.triggerDate.toDateString()})`);
-          await scheduleExpiryNotification(item);
-        } else {
-          console.log(`${item.name}: 예약할 알림 없음`);
-        }
-        
-        // 재고 부족 알림
-        if (item.quantity <= settings.stockThreshold) {
+        await scheduleExpiryNotification(item);
+        if (item.quantity <= overridden.stockThreshold) {
           await scheduleStockNotification(item);
         }
       }
-      
-      Alert.alert('긴급 수정 완료', '모든 알림이 올바르게 재설정되었습니다.');
+
+      Alert.alert('긴급 수정 완료', `알림 시간이 ${hh}:${mm}로 임시 조정되어 1~2분 내 순차 도착합니다.`);
     } catch (error) {
       console.error('긴급 수정 실패:', error);
       Alert.alert('오류', '긴급 수정에 실패했습니다.');

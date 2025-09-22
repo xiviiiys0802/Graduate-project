@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, FlatList, ActivityIndicator, TouchableOpacity, Image, StyleSheet } from 'react-native';
+import { View, Text, FlatList, ActivityIndicator, TouchableOpacity, StyleSheet } from 'react-native';
 import { auth } from '../config/firebase';
 import { subscribePantry, fetchRecipesOnce, seedRecipesIfEmpty, dedupeRecipesByName, addCrawledRecipes, replaceWithCrawledRecipes } from '../services/firestore';
 import { recommendRecipes } from '../utils/recommendation';
@@ -207,14 +207,7 @@ export default function RecipeRecommendationScreen({ navigation }) {
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
           <Card style={styles.recipeCard}>
-            {item.imageUrl ? (
-              <Image source={{ uri: item.imageUrl }} style={styles.recipeImage} resizeMode="cover" />
-            ) : (
-              <View style={styles.recipeImagePlaceholder}>
-                <Ionicons name="restaurant" size={48} color={Colors.textSecondary} />
-              </View>
-            )}
-            
+            {/* 이미지 영역 제거: 제목/매칭/버튼만 표시 */}
             <View style={styles.recipeContent}>
               <Text style={styles.recipeTitle}>{item.title || item.name}</Text>
               
@@ -236,8 +229,7 @@ export default function RecipeRecommendationScreen({ navigation }) {
                   >
                     <Ionicons name="cart" size={16} color={Colors.white} />
                     <ButtonText style={styles.actionButtonText}>장보기에 담기</ButtonText>
-                  </Button>
-                )}
+                </Button>
                 
                 <Button
                   style={[styles.actionButton, styles.detailButton]}
@@ -345,17 +337,7 @@ const styles = StyleSheet.create({
     marginVertical: Theme.spacing.sm,
     overflow: 'hidden',
   },
-  recipeImage: {
-    width: '100%',
-    height: 200,
-  },
-  recipeImagePlaceholder: {
-    width: '100%',
-    height: 200,
-    backgroundColor: Colors.background,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
+  // 이미지 숨김으로 관련 스타일 제거
   recipeContent: {
     padding: Theme.spacing.md,
     gap: Theme.spacing.md,

@@ -126,7 +126,9 @@ const FoodItemForm = ({ onItemAdded, editMode = false, itemToEdit = null }) => {
       } else {
         // 추가 모드
         itemData.addedDate = formatDate(new Date());
-        await saveFoodItemToFirestore(itemData);
+        const newDocId = await saveFoodItemToFirestore(itemData);
+        // 저장된 문서 ID를 알림/추적에 사용하기 위해 보존
+        itemData.id = newDocId;
       }
       
       // 통계 업데이트
@@ -140,7 +142,8 @@ const FoodItemForm = ({ onItemAdded, editMode = false, itemToEdit = null }) => {
       // 알림 예약 (추가 모드에서만)
       if (!editMode) {
         try {
-          const itemForNotification = { ...itemData, id: generateId() };
+          // 저장된 Firestore 문서 ID를 사용해야 중복 방지 키가 일치함
+          const itemForNotification = { ...itemData };
           await scheduleExpiryNotification(itemForNotification);
           
           if (itemData.quantity <= 2) {

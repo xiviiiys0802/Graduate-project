@@ -71,9 +71,9 @@ export function scoreRecipe(recipe, pantryIdx, weights = { wUrgency: 1.2, wMatch
     const ingredientName = ing.normalizedName || ing.name || '';
     if (!ingredientName) continue;
 
-    // 물은 매칭에서 제외 (항상 보유한 것으로 간주)
-    if (ingredientName.trim() === '물' || ingredientName.trim() === 'water') {
-      match += 1; // 물은 항상 보유
+    // 물은 매칭/부족 계산에서 완전히 제외 (총 필요 개수에서도 빼기)
+    const isWater = ingredientName.trim() === '물' || ingredientName.trim() === 'water' || ingredientName.startsWith('물');
+    if (isWater) {
       continue;
     }
 
@@ -103,7 +103,10 @@ export function scoreRecipe(recipe, pantryIdx, weights = { wUrgency: 1.2, wMatch
     }
   }
 
-  const neededCount = needed?.length || 0;
+  const neededCount = needed.filter(n => {
+    const nname = (n.name || '').trim();
+    return nname !== '물' && nname !== 'water' && !nname.startsWith('물');
+  })?.length || 0;
   const ratio = neededCount ? match / neededCount : 0;
   const score = weights.wUrgency * urgency + weights.wMatch * ratio - weights.wMissing * (missing?.length || 0);
 

@@ -13,6 +13,15 @@ import * as Notifications from 'expo-notifications';
 import { saveNotificationHistory } from './src/utils/notificationHistory';
 import { Colors } from './src/utils/colors';
 
+// 포그라운드에서도 로컬 알림을 시각적으로 표시하도록 핸들러 설정
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+  }),
+});
+
 const Stack = createStackNavigator();
 
 const AppNavigator = () => {
@@ -21,9 +30,6 @@ const AppNavigator = () => {
   // 알림 시스템 초기화
   React.useEffect(() => {
     if (user) {
-      // 먼저 모든 기존 알림을 취소
-      cancelAllNotifications();
-      
       registerForPushNotificationsAsync();
       
       // 알림 리스너 설정
@@ -57,11 +63,20 @@ const AppNavigator = () => {
         }
       });
 
-      const responseListener = Notifications.addNotificationResponseReceivedListener(response => {
+      const responseListener = Notifications.addNotificationResponseReceivedListener(async (response) => {
         console.log('알림을 탭했습니다:', response);
         
         // 알림 탭 시 추가 처리 (필요시)
-        const notificationData = response.notification.request.content.data;
+        const content = response.notification.request.content;
+        const notificationData = content.data;
+        // 탭 시에도 히스토리에 저장
+        await saveNotificationHistory({
+          type: notificationData?.type || 'unknown',
+          title: content.title,
+          body: content.body,
+          data: notificationData,
+          receivedAt: new Date().toISOString(),
+        });
         if (notificationData?.type === 'expiry' && notificationData?.foodId) {
           // 유통기한 알림 탭 시 해당 음식 상세 화면으로 이동 등의 처리
           console.log('유통기한 알림 탭됨:', notificationData.foodName);

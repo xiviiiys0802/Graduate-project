@@ -1,6 +1,6 @@
 // src/screens/MoreScreen.js
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, FlatList, ActivityIndicator, TextInput, Alert, Image } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, FlatList, ActivityIndicator, TextInput, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { auth } from '../config/firebase';
@@ -195,8 +195,34 @@ export default function MoreScreen() {
     }
   };
 
+  // 고기류 재료 식별 함수
+  const isMeatItem = (item) => {
+    const meatKeywords = [
+      '소고기', '돼지고기', '닭고기', '양고기', '오리고기', '쇠고기',
+      '삼겹살', '목살', '갈비', '등심', '안심', '우둔', '사태', '양지',
+      '닭가슴살', '닭다리', '닭봉', '닭날개', '닭안심',
+      '돼지갈비', '돼지등갈비', '돼지목살', '돼지안심', '돼지갈비살',
+      '베이컨', '햄', '소시지', '살라미',
+      '고기', '육류', '정육'
+    ];
+    const itemName = (item.name || '').toLowerCase();
+    return meatKeywords.some(keyword => itemName.includes(keyword));
+  };
+
   // 장보기 리스트 수량 변경
-  const handleQuantityChange = async (itemId, newQuantity) => {
+  const handleQuantityChange = async (itemId, delta) => {
+    const item = shoppingItems.find(item => item.id === itemId);
+    if (!item) return;
+
+    let newQuantity;
+    if (isMeatItem(item) && item.unit === 'g') {
+      // 고기류는 50g 단위로 조절
+      newQuantity = Math.max(50, item.quantity + (delta * 50));
+    } else {
+      // 일반 재료는 1개 단위로 조절
+      newQuantity = Math.max(1, item.quantity + delta);
+    }
+
     if (newQuantity <= 0) {
       await handleDeleteItem(itemId);
       return;
@@ -211,11 +237,27 @@ export default function MoreScreen() {
 
   // 장보기 리스트 항목 삭제
   const handleDeleteItem = async (itemId) => {
-    try {
-      await deleteItem(itemId);
-    } catch (error) {
-      Alert.alert('오류', '항목 삭제에 실패했습니다.');
-    }
+    const item = shoppingItems.find(item => item.id === itemId);
+    const itemName = item?.name || '항목';
+    
+    Alert.alert(
+      '삭제 확인',
+      `"${itemName}"을(를) 정말 삭제하시겠습니까?`,
+      [
+        { text: '취소', style: 'cancel' },
+        {
+          text: '삭제',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteItem(itemId);
+            } catch (error) {
+              Alert.alert('오류', '항목 삭제에 실패했습니다.');
+            }
+          },
+        },
+      ]
+    );
   };
 
   // 장보기 리스트 렌더링
@@ -237,21 +279,21 @@ export default function MoreScreen() {
           {item.name}
         </Text>
         <Text style={styles.itemQuantity}>
-          {item.quantity} {item.unit || '개'}
+          {item.quantity}{item.unit || '개'}
         </Text>
       </View>
       
       <View style={styles.itemActions}>
         <TouchableOpacity 
           style={styles.quantityButton}
-          onPress={() => handleQuantityChange(item.id, item.quantity - 1)}
+          onPress={() => handleQuantityChange(item.id, -1)}
         >
           <Ionicons name="remove" size={16} color="#666" />
         </TouchableOpacity>
         
         <TouchableOpacity 
           style={styles.quantityButton}
-          onPress={() => handleQuantityChange(item.id, item.quantity + 1)}
+          onPress={() => handleQuantityChange(item.id, 1)}
         >
           <Ionicons name="add" size={16} color="#666" />
         </TouchableOpacity>
@@ -260,7 +302,7 @@ export default function MoreScreen() {
           style={styles.deleteButton}
           onPress={() => handleDeleteItem(item.id)}
         >
-          <Ionicons name="trash" size={16} color="#FF6B6B" />
+          <Text style={styles.deleteButtonText}>×</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -375,15 +417,7 @@ export default function MoreScreen() {
           <ScrollView style={styles.recipeList} showsVerticalScrollIndicator={false}>
             {rankedRecipes.map((recipe, index) => (
               <View key={recipe.id || index} style={styles.recipeCard}>
-                {/* 이미지 표시 - 만개의 레시피 이미지 또는 명확한 이미지 */}
-                {recipe.imageUrl && (
-                  recipe.imageUrl.includes('ezmember.co.kr') || 
-                  recipe.imageUrl.includes('unsplash.com') || 
-                  recipe.imageUrl.includes('10000recipe.com')
-                ) ? (
-                  <Image source={{ uri: recipe.imageUrl }} style={styles.recipeImage} resizeMode="cover" />
-                ) : null}
-                
+                {/* 이미지 숨김: 제목/매칭/버튼만 표시 */}
                 <View style={styles.recipeContent}>
                   <Text style={styles.recipeTitle}>{recipe.name}</Text>
                   <Text style={styles.recipeMatch}>
@@ -707,11 +741,7 @@ const styles = StyleSheet.create({
     elevation: 3,
     overflow: 'hidden',
   },
-  recipeImage: {
-    width: '100%',
-    height: 150,
-    marginBottom: 12,
-  },
+  // 이미지 숨김으로 스타일 제거
   recipeContent: {
     flex: 1,
   },
@@ -871,13 +901,19 @@ const styles = StyleSheet.create({
     marginHorizontal: 4,
   },
   deleteButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#fff5f5',
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#FF6B6B',
     justifyContent: 'center',
     alignItems: 'center',
     marginLeft: 8,
+  },
+  deleteButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: 'bold',
+    lineHeight: 16,
   },
   appInfo: {
     alignItems: 'center',

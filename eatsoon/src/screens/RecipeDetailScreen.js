@@ -207,7 +207,7 @@ export default function RecipeDetailScreen({ route, navigation }) {
                 <View style={styles.stepNumber}>
                   <Text style={styles.stepNumberText}>{index + 1}</Text>
                 </View>
-                <Text style={styles.stepText}>{step}</Text>
+                <Text style={styles.stepText} allowFontScaling={false} lineBreakStrategyIOS="hangul-word">{step}</Text>
               </View>
             ))}
           </View>
@@ -350,6 +350,8 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     flexShrink: 1,
     flexWrap: 'wrap',
+    includeFontPadding: false,
+    textAlignVertical: 'top',
   },
   noticeBox: {
     flexDirection: 'row',
