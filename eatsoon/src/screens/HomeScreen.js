@@ -4,12 +4,15 @@ import FoodItemList from '../components/FoodItemList';
 import { useAuth } from '../contexts/AuthContext';
 import { useFocusEffect } from '@react-navigation/native';
 import { loadFoodItemsFromFirestore } from '../utils/firebaseStorage';
-import { scheduleExpiryNotification, scheduleStockNotification } from '../utils/notifications';
+import { scheduleExpiryNotification, scheduleStockNotification, loadNotificationSettings } from '../utils/notifications';
 import StatisticsService from '../services/statisticsService';
 
-const HomeScreen = () => {
+const HomeScreen = ({ route }) => {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const { user } = useAuth();
+  
+  // 프로필에서 전달된 필터 파라미터
+  const initialFilter = route?.params?.filter || null;
 
   // 화면이 포커스될 때마다 목록 새로고침
   useFocusEffect(
@@ -25,7 +28,8 @@ const HomeScreen = () => {
 
   const initializeNotifications = async () => {
     try {
-      const foodItems = await loadFoodItemsFromFirestore();
+      const foodItems = await loadFoodItemsFromFirestore() || [];
+      const settings = await loadNotificationSettings();
       
       let expiringSoonCount = 0;
       let expiredCount = 0;
@@ -34,8 +38,8 @@ const HomeScreen = () => {
         // 유통기한 알림 예약
         await scheduleExpiryNotification(item);
         
-        // 재고 부족 알림 예약
-        if (item.quantity <= 2) {
+        // 재고 부족 알림 예약 (사용자 설정 임계값 사용)
+        if (item.quantity <= settings.stockThreshold) {
           await scheduleStockNotification(item);
         }
         
@@ -74,6 +78,7 @@ const HomeScreen = () => {
         <FoodItemList 
           onItemDeleted={handleItemDeleted}
           refreshTrigger={refreshTrigger}
+          initialFilter={initialFilter}
         />
     </Container>
   );

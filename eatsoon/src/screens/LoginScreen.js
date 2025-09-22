@@ -19,7 +19,7 @@ const LoginScreen = () => {
   const { login, register } = useAuth();
 
   const validateEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-  const validatePassword = (password) => password.length >= 6;
+  const validatePassword = (password) => (password?.length || 0) >= 6;
 
   const handleLogin = async () => {
     if (!email || !password) return Alert.alert('오류', '이메일과 비밀번호를 입력해주세요.');

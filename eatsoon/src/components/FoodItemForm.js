@@ -1,26 +1,42 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, TextInput, TouchableOpacity, Text, Alert, StyleSheet } from 'react-native';
 import DateTimePicker from 'react-native-ui-datepicker';
-import { v4 as uuidv4 } from 'uuid';
 import { Container, Title, Button, ButtonText, Input } from './StyledComponents';
-import { saveFoodItemToFirestore } from '../utils/firebaseStorage';
+import { saveFoodItemToFirestore, updateFoodItemInFirestore } from '../utils/firebaseStorage';
 import { useAuth } from '../contexts/AuthContext';
 import { scheduleExpiryNotification, scheduleStockNotification } from '../utils/notifications';
 import VoiceRecognitionButton from './VoiceRecognitionButton';
 import { Colors, Theme } from '../utils/colors';
+
+// 간단한 ID 생성 함수
+const generateId = () => {
+  return Date.now().toString(36) + Math.random().toString(36).substr(2);
+};
 import { Ionicons } from '@expo/vector-icons';
 import StatisticsService from '../services/statisticsService';
 
-const FoodItemForm = ({ onItemAdded }) => {
+const FoodItemForm = ({ onItemAdded, editMode = false, itemToEdit = null }) => {
   const [name, setName] = useState('');
   const [expirationDate, setExpirationDate] = useState(new Date());
   const [quantity, setQuantity] = useState('1');
   const [category, setCategory] = useState('');
+  const [storageType, setStorageType] = useState('냉장');
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [loading, setLoading] = useState(false);
   const [voiceResult, setVoiceResult] = useState(null);
   
   const { user } = useAuth();
+
+  // 수정 모드일 때 기존 데이터로 폼 초기화
+  useEffect(() => {
+    if (editMode && itemToEdit) {
+      setName(itemToEdit.name || '');
+      setExpirationDate(new Date(itemToEdit.expirationDate) || new Date());
+      setQuantity(itemToEdit.quantity?.toString() || '1');
+      setCategory(itemToEdit.category || '');
+      setStorageType(itemToEdit.storageType || '냉장');
+    }
+  }, [editMode, itemToEdit]);
 
   const getCategoryKey = (category) => {
     const categoryMap = {
@@ -33,6 +49,15 @@ const FoodItemForm = ({ onItemAdded }) => {
       '간식': 'snacks',
     };
     return categoryMap[category] || 'others';
+  };
+
+  const getStorageIcon = (storageType) => {
+    switch (storageType) {
+      case '냉장': return 'snow';
+      case '냉동': return 'snow-outline';
+      case '실온': return 'thermometer';
+      default: return 'snow';
+    }
   };
 
   const handleVoiceResult = (result) => {
@@ -49,8 +74,19 @@ const FoodItemForm = ({ onItemAdded }) => {
       '양파': '채소', '당근': '채소', '감자': '채소', '김치': '채소'
     };
     
+    // 보관 방법 자동 추정
+    const storageMap = {
+      '사과': '냉장', '바나나': '실온', '오렌지': '냉장', '포도': '냉장',
+      '우유': '냉장', '치즈': '냉장', '요거트': '냉장',
+      '빵': '실온', '쌀': '실온', '밀가루': '실온',
+      '계란': '냉장', '치킨': '냉장', '돼지고기': '냉장', '소고기': '냉장',
+      '양파': '실온', '당근': '냉장', '감자': '실온', '김치': '냉장'
+    };
+    
     const estimatedCategory = categoryMap[result.name] || '';
+    const estimatedStorage = storageMap[result.name] || '냉장';
     setCategory(estimatedCategory);
+    setStorageType(estimatedStorage);
   };
 
   const handleSubmit = async () => {
@@ -67,16 +103,33 @@ const FoodItemForm = ({ onItemAdded }) => {
     setLoading(true);
 
     try {
-      const newItem = {
+      // 날짜를 안전하게 저장 (시간대 문제 방지)
+      const formatDate = (date) => {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+      };
+
+      const itemData = {
         name: name.trim(),
-        expirationDate: expirationDate.toISOString().split('T')[0],
-        addedDate: new Date().toISOString().split('T')[0],
+        expirationDate: formatDate(expirationDate),
         quantity: parseInt(quantity) || 1,
         category: category.trim() || null,
+        storageType: storageType,
         userId: user.uid
       };
 
-      await saveFoodItemToFirestore(newItem);
+      if (editMode && itemToEdit) {
+        // 수정 모드
+        await updateFoodItemInFirestore(itemToEdit.id, itemData);
+      } else {
+        // 추가 모드
+        itemData.addedDate = formatDate(new Date());
+        const newDocId = await saveFoodItemToFirestore(itemData);
+        // 저장된 문서 ID를 알림/추적에 사용하기 위해 보존
+        itemData.id = newDocId;
+      }
       
       // 통계 업데이트
       try {
@@ -86,27 +139,34 @@ const FoodItemForm = ({ onItemAdded }) => {
         console.error('통계 업데이트 실패:', statError);
       }
       
-      // 알림 예약
-      try {
-        await scheduleExpiryNotification(newItem);
-        
-        if (newItem.quantity <= 2) {
-          await scheduleStockNotification(newItem);
+      // 알림 예약 (추가 모드에서만)
+      if (!editMode) {
+        try {
+          // 저장된 Firestore 문서 ID를 사용해야 중복 방지 키가 일치함
+          const itemForNotification = { ...itemData };
+          await scheduleExpiryNotification(itemForNotification);
+          
+          if (itemData.quantity <= 2) {
+            await scheduleStockNotification(itemForNotification);
+          }
+          
+          console.log('알림이 성공적으로 예약되었습니다.');
+        } catch (notificationError) {
+          console.error('알림 예약 실패:', notificationError);
         }
-        
-        console.log('알림이 성공적으로 예약되었습니다.');
-      } catch (notificationError) {
-        console.error('알림 예약 실패:', notificationError);
       }
       
-      // 폼 초기화
-      setName('');
-      setQuantity('1');
-      setCategory('');
-      setExpirationDate(new Date());
-      setVoiceResult(null);
+      // 폼 초기화 (추가 모드에서만)
+      if (!editMode) {
+        setName('');
+        setQuantity('1');
+        setCategory('');
+        setStorageType('냉장');
+        setExpirationDate(new Date());
+        setVoiceResult(null);
+      }
       
-      Alert.alert('성공', '음식 아이템이 추가되었습니다.');
+      Alert.alert('성공', editMode ? '음식 아이템이 수정되었습니다.' : '음식 아이템이 추가되었습니다.');
       
       if (onItemAdded) {
         onItemAdded();
@@ -124,7 +184,7 @@ const FoodItemForm = ({ onItemAdded }) => {
 
   return (
     <Container>
-      <Title>음식 추가</Title>
+      <Title>{editMode ? '음식 수정' : '음식 추가'}</Title>
       
       {/* 음성인식 섹션 */}
       <View style={styles.voiceSection}>
@@ -173,6 +233,35 @@ const FoodItemForm = ({ onItemAdded }) => {
         onChangeText={setCategory}
       />
       
+      {/* 보관 방법 선택 */}
+      <View style={styles.storageTypeSection}>
+        <Text style={styles.storageTypeLabel}>보관 방법</Text>
+        <View style={styles.storageTypeButtons}>
+          {['냉장', '냉동', '실온'].map((type) => (
+            <TouchableOpacity
+              key={type}
+              style={[
+                styles.storageTypeButton,
+                storageType === type && styles.storageTypeButtonActive
+              ]}
+              onPress={() => setStorageType(type)}
+            >
+              <Ionicons 
+                name={getStorageIcon(type)} 
+                size={20} 
+                color={storageType === type ? Colors.textInverse : Colors.textSecondary} 
+              />
+              <Text style={[
+                styles.storageTypeButtonText,
+                storageType === type && styles.storageTypeButtonTextActive
+              ]}>
+                {type}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
+      
       <TouchableOpacity
         style={styles.dateButton}
         onPress={() => setShowDatePicker(true)}
@@ -201,7 +290,7 @@ const FoodItemForm = ({ onItemAdded }) => {
         style={styles.submitButton}
       >
         <ButtonText>
-          {loading ? "추가 중..." : "추가하기"}
+          {loading ? (editMode ? "수정 중..." : "추가 중...") : (editMode ? "수정하기" : "추가하기")}
         </ButtonText>
       </Button>
     </Container>
@@ -270,6 +359,45 @@ const styles = StyleSheet.create({
   },
   submitButton: {
     marginTop: Theme.spacing.md,
+  },
+  storageTypeSection: {
+    marginBottom: Theme.spacing.md,
+  },
+  storageTypeLabel: {
+    fontSize: Theme.typography.body.fontSize,
+    fontWeight: '600',
+    color: Colors.textPrimary,
+    marginBottom: Theme.spacing.sm,
+  },
+  storageTypeButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: Theme.spacing.sm,
+  },
+  storageTypeButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: Theme.spacing.md,
+    paddingHorizontal: Theme.spacing.sm,
+    borderRadius: Theme.borderRadius.md,
+    borderWidth: 2,
+    borderColor: Colors.border,
+    backgroundColor: Colors.surface,
+  },
+  storageTypeButtonActive: {
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
+  },
+  storageTypeButtonText: {
+    fontSize: Theme.typography.caption.fontSize,
+    color: Colors.textSecondary,
+    marginLeft: Theme.spacing.xs,
+    fontWeight: '500',
+  },
+  storageTypeButtonTextActive: {
+    color: Colors.textInverse,
   },
 });
 

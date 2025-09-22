@@ -4,10 +4,11 @@ import { View, Text, Switch, StyleSheet, ScrollView, TouchableOpacity, Alert, Mo
 import { 
   saveNotificationSettings, 
   loadNotificationSettings,
-  scheduleDailyNotification,
   cancelAllNotifications
 } from '../utils/notifications';
-import DateTimePicker from 'react-native-ui-datepicker';
+import { loadFoodItemsFromFirestore } from '../utils/firebaseStorage';
+import { scheduleExpiryNotification, scheduleStockNotification } from '../utils/notifications';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Theme } from '../utils/colors';
@@ -24,17 +25,17 @@ import {
 
 export default function NotificationSettingsScreen() {
   const [settings, setSettings] = useState({
-    expiryEnabled: true,
-    stockEnabled: true,
-    dailyEnabled: false,
+    expiryEnabled: false,
+    stockEnabled: false,
     expiryDays: [3, 1, 0], // 3일 전, 1일 전, 당일
-    dailyTime: '09:00' // 오전 9시
+    stockThreshold: 2, // 재고 부족 임계값
+    quietHours: { start: '22:00', end: '08:00' }, // 방해 금지 시간
   });
   const [loading, setLoading] = useState(true);
-  const [showTimePicker, setShowTimePicker] = useState(false);
   const [showExpiryPicker, setShowExpiryPicker] = useState(false);
-  const [tempTime, setTempTime] = useState('09:00');
+  const [showThresholdPicker, setShowThresholdPicker] = useState(false);
   const [tempExpiryDays, setTempExpiryDays] = useState([3, 1, 0]);
+  const [tempThreshold, setTempThreshold] = useState(2);
   const navigation = useNavigation();
 
   useEffect(() => {
@@ -44,9 +45,11 @@ export default function NotificationSettingsScreen() {
   const loadSettings = async () => {
     try {
       const savedSettings = await loadNotificationSettings();
+      console.log('로드된 설정:', savedSettings);
       setSettings(savedSettings);
-      setTempTime(savedSettings.dailyTime);
-      setTempExpiryDays(savedSettings.expiryDays);
+      // 선택 모달 초기값을 저장된 값으로 동기화 (예: 2일 전 표시 유지)
+      setTempExpiryDays(savedSettings.expiryDays || [3, 1, 0]);
+      setTempThreshold(savedSettings.stockThreshold);
     } catch (error) {
       console.error('설정 불러오기 실패:', error);
     } finally {
@@ -60,39 +63,13 @@ export default function NotificationSettingsScreen() {
     
     try {
       await saveNotificationSettings(newSettings);
-      
-      // 정기 알림 설정 변경 시 즉시 적용
-      if (key === 'dailyEnabled') {
-        if (value) {
-          await scheduleDailyNotification();
-          Alert.alert('알림 설정', `매일 ${settings.dailyTime}에 정기 알림이 설정되었습니다.`);
-        } else {
-          await cancelAllNotifications();
-          Alert.alert('알림 설정', '정기 알림이 해제되었습니다.');
-        }
+      if (key === 'expiryEnabled' || key === 'dailyTime') {
+        await cancelAllNotifications();
+        await reinitializeNotifications(newSettings);
       }
     } catch (error) {
       console.error('설정 저장 실패:', error);
       Alert.alert('오류', '설정 저장에 실패했습니다.');
-    }
-  };
-
-  const handleTimeChange = async (time) => {
-    const newSettings = { ...settings, dailyTime: time };
-    setSettings(newSettings);
-    setTempTime(time);
-    
-    try {
-      await saveNotificationSettings(newSettings);
-      
-      // 정기 알림이 활성화되어 있다면 새로운 시간으로 재설정
-      if (settings.dailyEnabled) {
-        await scheduleDailyNotification();
-        Alert.alert('알림 설정', `정기 알림 시간이 ${time}로 변경되었습니다.`);
-      }
-    } catch (error) {
-      console.error('시간 설정 저장 실패:', error);
-      Alert.alert('오류', '시간 설정 저장에 실패했습니다.');
     }
   };
 
@@ -103,6 +80,9 @@ export default function NotificationSettingsScreen() {
     
     try {
       await saveNotificationSettings(newSettings);
+      // 기존 예약을 모두 취소 후 새로운 시점으로 재예약
+      await cancelAllNotifications();
+      await reinitializeNotifications(newSettings);
       Alert.alert('알림 설정', '유통기한 알림 시점이 변경되었습니다.');
     } catch (error) {
       console.error('유통기한 설정 저장 실패:', error);
@@ -128,17 +108,86 @@ export default function NotificationSettingsScreen() {
     }
   };
 
-  const formatTime = (timeString) => {
-    const [hours, minutes] = timeString.split(':');
-    const hour = parseInt(hours);
-    const ampm = hour >= 12 ? '오후' : '오전';
-    const displayHour = hour > 12 ? hour - 12 : hour === 0 ? 12 : hour;
-    return `${ampm} ${displayHour}:${minutes}`;
+  const formatExpiryDays = (days) => {
+    if ((days?.length || 0) === 0) return '설정되지 않음';
+    return days.map(day => `${day}일 전`).join(', ');
   };
 
-  const formatExpiryDays = (days) => {
-    if (days.length === 0) return '설정되지 않음';
-    return days.map(day => `${day}일 전`).join(', ');
+  const handleThresholdChange = async (threshold) => {
+    const newSettings = { ...settings, stockThreshold: threshold };
+    setSettings(newSettings);
+    console.log('임계값 변경:', threshold, '새 설정:', newSettings);
+    
+    try {
+      await saveNotificationSettings(newSettings);
+      
+      // 기존 알림 취소 후 새로운 설정으로 다시 예약
+      await cancelAllNotifications();
+      await reinitializeNotifications(newSettings);
+      
+      Alert.alert('알림 설정', `재고 부족 임계값이 ${threshold}개로 변경되었습니다.`);
+    } catch (error) {
+      console.error('임계값 설정 저장 실패:', error);
+      Alert.alert('오류', '임계값 설정 저장에 실패했습니다.');
+    }
+  };
+
+  // 알림 재초기화 함수
+  const reinitializeNotifications = async (newSettings) => {
+    try {
+      const foodItems = await loadFoodItemsFromFirestore() || [];
+      
+      for (const item of foodItems) {
+        // 유통기한 알림 예약
+        await scheduleExpiryNotification(item);
+        
+        // 재고 부족 알림 예약 (새로운 임계값 사용)
+        if (item.quantity <= newSettings.stockThreshold) {
+          await scheduleStockNotification(item);
+        }
+      }
+      
+      console.log('알림이 새로운 설정으로 재초기화되었습니다.');
+    } catch (error) {
+      console.error('알림 재초기화 실패:', error);
+    }
+  };
+
+  // 모든 알림 완전 초기화 함수 (긴급 수정용)
+  const emergencyResetNotifications = async () => {
+    try {
+      // 모든 기존 알림 완전 취소
+      await cancelAllNotifications();
+
+      // 중복 방지 키 제거
+      const foodItems = await loadFoodItemsFromFirestore() || [];
+      for (const item of foodItems) {
+        await AsyncStorage.removeItem(`expiry_${item.id}`);
+        await AsyncStorage.removeItem(`stock_${item.id}_${item.quantity}`);
+      }
+
+      // 테스트 편의를 위해 dailyTime을 현재 시각 + 1분으로 일시 조정 후 저장
+      const now = new Date();
+      const nextMinute = new Date(now.getTime() + 60 * 1000);
+      const hh = String(nextMinute.getHours()).padStart(2, '0');
+      const mm = String(nextMinute.getMinutes()).padStart(2, '0');
+      const current = await loadNotificationSettings();
+      const overridden = { ...current, dailyTime: `${hh}:${mm}` };
+      await saveNotificationSettings(overridden);
+
+      // 새 로직으로 간단히 재예약: 각 아이템에 대해 표준 스케줄러 호출만 수행
+      for (const item of foodItems) {
+        await scheduleExpiryNotification(item);
+        if (item.quantity <= overridden.stockThreshold) {
+          await scheduleStockNotification(item);
+        }
+      }
+
+      Alert.alert('긴급 수정 완료', `알림 시간이 ${hh}:${mm}로 임시 조정되어 1~2분 내 순차 도착합니다.`);
+    } catch (error) {
+      console.error('긴급 수정 실패:', error);
+      Alert.alert('오류', '긴급 수정에 실패했습니다.');
+    }
   };
 
   if (loading) {
@@ -211,27 +260,6 @@ export default function NotificationSettingsScreen() {
             />
           </View>
           
-          <Divider />
-          
-          <View style={styles.settingItem}>
-            <View style={styles.settingInfo}>
-              <IconContainer>
-                <Ionicons name="notifications" size={20} color={Colors.info} />
-              </IconContainer>
-              <View style={styles.settingText}>
-                <Text style={styles.label}>정기 알림</Text>
-                <Text style={styles.description}>
-                  매일 {formatTime(settings.dailyTime)}에 음식 재고 확인 알림을 받습니다
-                </Text>
-              </View>
-            </View>
-            <Switch
-              value={settings.dailyEnabled}
-              onValueChange={(value) => handleSettingChange('dailyEnabled', value)}
-              trackColor={{ false: Colors.border, true: Colors.primary + '40' }}
-              thumbColor={settings.dailyEnabled ? Colors.primary : Colors.textSecondary}
-            />
-          </View>
         </Card>
 
         {/* 알림 설정 */}
@@ -247,12 +275,60 @@ export default function NotificationSettingsScreen() {
           />
           <Divider />
           <ListItem
-            onPress={() => setShowTimePicker(true)}
-            icon="time"
-            title="정기 알림 시간"
-            subtitle={`매일 ${formatTime(settings.dailyTime)}에 알림`}
+            onPress={() => setShowThresholdPicker(true)}
+            icon="cube"
+            title="재고 부족 임계값"
+            subtitle={`${settings.stockThreshold}개 이하일 때 알림`}
             rightIcon="chevron-forward"
           />
+        </Card>
+
+        {/* 고급 설정 */}
+        <SectionHeader>고급 설정</SectionHeader>
+        
+        <Card style={styles.menuCard}>
+          <View style={styles.settingItem}>
+            <View style={styles.settingInfo}>
+              <IconContainer>
+                <Ionicons name="volume-high" size={20} color={Colors.textSecondary} />
+              </IconContainer>
+              <View style={styles.settingText}>
+                <Text style={styles.label}>알림 소리</Text>
+                <Text style={styles.description}>
+                  알림이 올 때 소리를 재생합니다
+                </Text>
+              </View>
+            </View>
+            <Switch
+              value={settings.soundEnabled}
+              onValueChange={(value) => handleSettingChange('soundEnabled', value)}
+              trackColor={{ false: Colors.border, true: Colors.primary + '40' }}
+              thumbColor={settings.soundEnabled ? Colors.primary : Colors.textSecondary}
+            />
+          </View>
+          
+          <Divider />
+          
+          <View style={styles.settingItem}>
+            <View style={styles.settingInfo}>
+              <IconContainer>
+                <Ionicons name="phone-portrait" size={20} color={Colors.textSecondary} />
+              </IconContainer>
+              <View style={styles.settingText}>
+                <Text style={styles.label}>진동</Text>
+                <Text style={styles.description}>
+                  알림이 올 때 진동을 울립니다
+                </Text>
+              </View>
+            </View>
+            <Switch
+              value={settings.vibrationEnabled}
+              onValueChange={(value) => handleSettingChange('vibrationEnabled', value)}
+              trackColor={{ false: Colors.border, true: Colors.primary + '40' }}
+              thumbColor={settings.vibrationEnabled ? Colors.primary : Colors.textSecondary}
+            />
+          </View>
+          
         </Card>
 
         {/* 기타 */}
@@ -275,50 +351,18 @@ export default function NotificationSettingsScreen() {
             <ButtonText style={styles.historyButtonText}>알림 히스토리 보기</ButtonText>
           </Button>
         </Card>
-      </ScrollView>
 
-      {/* 시간 선택 모달 */}
-      <Modal
-        visible={showTimePicker}
-        transparent={true}
-        animationType="slide"
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>알림 시간 설정</Text>
-            
-            <DateTimePicker
-              mode="time"
-              date={new Date(`2000-01-01T${tempTime}:00`)}
-              onChange={({ date }) => {
-                const hours = date.getHours().toString().padStart(2, '0');
-                const minutes = date.getMinutes().toString().padStart(2, '0');
-                const timeString = `${hours}:${minutes}`;
-                setTempTime(timeString);
-              }}
-            />
-            
-            <View style={styles.modalButtons}>
-              <TouchableOpacity 
-                style={[styles.modalButton, styles.cancelButton]} 
-                onPress={() => setShowTimePicker(false)}
-              >
-                <Text style={styles.cancelButtonText}>취소</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity 
-                style={[styles.modalButton, styles.confirmButton]} 
-                onPress={() => {
-                  handleTimeChange(tempTime);
-                  setShowTimePicker(false);
-                }}
-              >
-                <Text style={styles.confirmButtonText}>확인</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+        {/* 디버깅용 알림 재설정 버튼 */}
+        <Card style={styles.menuCard}>
+          <Button 
+            style={styles.debugButton}
+            onPress={emergencyResetNotifications}
+          >
+            <Ionicons name="refresh" size={20} color={Colors.white} />
+            <ButtonText style={styles.debugButtonText}>긴급 알림 수정</ButtonText>
+          </Button>
+        </Card>
+      </ScrollView>
 
       {/* 유통기한 알림 시점 선택 모달 */}
       <Modal
@@ -376,7 +420,79 @@ export default function NotificationSettingsScreen() {
             </View>
           </View>
         </View>
-            </Modal>
+      </Modal>
+
+      {/* 임계값 선택 모달 */}
+      <Modal
+        visible={showThresholdPicker}
+        transparent={true}
+        animationType="slide"
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>재고 부족 임계값 설정</Text>
+            
+            <View style={styles.thresholdOptions}>
+              {[1, 2, 3].map((threshold) => (
+                <TouchableOpacity
+                  key={threshold}
+                  style={[
+                    styles.thresholdOption,
+                    tempThreshold === threshold && styles.thresholdOptionSelected
+                  ]}
+                  onPress={() => setTempThreshold(threshold)}
+                >
+                  <Text style={[
+                    styles.thresholdOptionText,
+                    tempThreshold === threshold && styles.thresholdOptionTextSelected
+                  ]}>
+                    {threshold}개 이하
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <View style={styles.thresholdOptions}>
+              {[4, 5, 10].map((threshold) => (
+                <TouchableOpacity
+                  key={threshold}
+                  style={[
+                    styles.thresholdOption,
+                    tempThreshold === threshold && styles.thresholdOptionSelected
+                  ]}
+                  onPress={() => setTempThreshold(threshold)}
+                >
+                  <Text style={[
+                    styles.thresholdOptionText,
+                    tempThreshold === threshold && styles.thresholdOptionTextSelected
+                  ]}>
+                    {threshold}개 이하
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            
+            <View style={styles.modalButtons}>
+              <TouchableOpacity 
+                style={[styles.modalButton, styles.cancelButton]} 
+                onPress={() => setShowThresholdPicker(false)}
+              >
+                <Text style={styles.cancelButtonText}>취소</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={[styles.modalButton, styles.confirmButton]} 
+                onPress={() => {
+                  handleThresholdChange(tempThreshold);
+                  setShowThresholdPicker(false);
+                }}
+              >
+                <Text style={styles.confirmButtonText}>확인</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
     </Container>
   );
 }
@@ -465,6 +581,18 @@ const styles = StyleSheet.create({
   historyButtonText: {
     marginLeft: Theme.spacing.xs,
   },
+  debugButton: {
+    backgroundColor: Colors.warning,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: Theme.spacing.md,
+    paddingHorizontal: Theme.spacing.lg,
+    borderRadius: Theme.borderRadius.md,
+  },
+  debugButtonText: {
+    marginLeft: Theme.spacing.sm,
+  },
 
   // 모달
   modalOverlay: {
@@ -546,5 +674,73 @@ const styles = StyleSheet.create({
   expiryOptionTextSelected: {
     color: Colors.white,
     fontWeight: '500',
+  },
+  thresholdOptions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginVertical: Theme.spacing.md,
+    paddingHorizontal: 8,
+  },
+  thresholdOption: {
+    width: '30%',
+    paddingVertical: Theme.spacing.md,
+    paddingHorizontal: Theme.spacing.xs,
+    borderRadius: Theme.borderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    alignItems: 'center',
+    backgroundColor: Colors.surface,
+    minHeight: 50,
+    justifyContent: 'center',
+  },
+  thresholdOptionSelected: {
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
+  },
+  thresholdOptionText: {
+    fontSize: 13,
+    color: Colors.textPrimary,
+    textAlign: 'center',
+    fontWeight: '500',
+    lineHeight: 16,
+  },
+  thresholdOptionTextSelected: {
+    color: Colors.white,
+    fontWeight: '500',
+  },
+  priorityOptions: {
+    marginVertical: Theme.spacing.lg,
+  },
+  priorityOption: {
+    paddingVertical: Theme.spacing.md,
+    paddingHorizontal: Theme.spacing.lg,
+    borderRadius: Theme.borderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    marginBottom: Theme.spacing.sm,
+    backgroundColor: Colors.surface,
+  },
+  priorityOptionSelected: {
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
+  },
+  priorityOptionContent: {
+    alignItems: 'center',
+  },
+  priorityOptionText: {
+    fontSize: Theme.typography.body.fontSize,
+    color: Colors.textPrimary,
+    fontWeight: '500',
+  },
+  priorityOptionTextSelected: {
+    color: Colors.white,
+  },
+  priorityOptionDescription: {
+    fontSize: Theme.typography.small.fontSize,
+    color: Colors.textSecondary,
+    marginTop: Theme.spacing.xs,
+  },
+  priorityOptionDescriptionSelected: {
+    color: Colors.white + 'CC',
   },
 });

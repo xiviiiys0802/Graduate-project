@@ -11,6 +11,32 @@ import { saveNotificationHistory } from './notificationHistory';
 import StatisticsService from '../services/statisticsService';
 
 const db = getFirestore(); // Firestore 인스턴스
+// 공통 스케줄러: 플랫폼/Expo 권장 포맷으로 안전하게 예약
+async function scheduleAtDate(dateOrNull, content, fireNow = false) {
+  try {
+    if (fireNow || !dateOrNull) {
+      return await Notifications.scheduleNotificationAsync({
+        content,
+        trigger: { seconds: 1 },
+      });
+    }
+
+    const trigger = { type: 'date', date: dateOrNull };
+    return await Notifications.scheduleNotificationAsync({ content, trigger });
+  } catch (e) {
+    console.error('알림 스케줄 실패:', e?.message || e);
+    // 폴백: 날짜 객체 직접 전달 (Expo Go 등 환경 차이 대응)
+    try {
+      return await Notifications.scheduleNotificationAsync({
+        content,
+        trigger: dateOrNull,
+      });
+    } catch (e2) {
+      console.error('알림 스케줄 폴백도 실패:', e2?.message || e2);
+      return null;
+    }
+  }
+}
 
 // ✅ 알림 권한 요청만 따로 분리한 함수
 export async function requestNotificationPermission() {
@@ -105,82 +131,158 @@ export async function registerForPushNotificationsAsync() {
 
 // ✅ 알림 스케줄링 함수들
 
+// 공통: 다양한 날짜 입력을 안전하게 Date로 변환
+function parseAnyDate(input) {
+  if (!input) return null;
+  if (input instanceof Date) return new Date(input.getFullYear(), input.getMonth(), input.getDate());
+  if (typeof input === 'number') return new Date(input);
+  const s = String(input);
+  // ISO like "2025-09-23" or "2025-09-23T12:34:56.000Z"
+  if (s.includes('T')) {
+    const d = new Date(s);
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  }
+  const parts = s.split('-').map(Number);
+  if (parts.length >= 3) {
+    return new Date(parts[0], parts[1] - 1, parts[2]);
+  }
+  const d = new Date(s);
+  if (isNaN(d.getTime())) return null;
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+}
+
 // 유통기한 알림 예약
 export async function scheduleExpiryNotification(foodItem) {
   try {
     const settings = await loadNotificationSettings();
-    const expiryDate = new Date(foodItem.expirationDate);
-    const now = new Date();
     
-    // 유통기한이 이미 지났으면 알림 예약하지 않음
-    if (expiryDate <= now) {
+    // 유통기한 알림이 비활성화되어 있으면 스킵
+    if (!settings.expiryEnabled) {
+      console.log('유통기한 알림이 비활성화되어 있습니다.');
       return null;
     }
 
-    // 사용자 설정에 따른 알림 시점
-    const notificationTimes = settings.expiryDays.map(days => ({
-      days,
-      title: days === 0 ? '유통기한 만료 알림' : '유통기한 임박 알림',
-      body: days === 0 
-        ? `${foodItem.name}의 유통기한이 오늘입니다.`
-        : `${foodItem.name}의 유통기한이 ${days}일 남았습니다.`
-    }));
+    // 우선순위 모드가 silent이면 스킵
+    if (settings.priorityMode === 'silent') {
+      console.log('알림 우선순위가 조용함 모드입니다.');
+      return null;
+    }
+
+    // 알림 시간 설정 파싱 (예: '09:00')
+    const [hh, mm] = String(settings.dailyTime || '09:00').split(':').map(v => parseInt(v, 10));
+
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const expiryDateOnly = parseAnyDate(foodItem.expirationDate);
+    if (!expiryDateOnly || isNaN(expiryDateOnly.getTime())) {
+      console.log('유통기한 날짜 파싱 실패로 예약 스킵:', foodItem.name, foodItem.expirationDate);
+      return null;
+    }
+    
+    // 유통기한이 이미 지났으면 알림 예약하지 않음 (당일은 허용)
+    if (expiryDateOnly < today) {
+      return null;
+    }
+
+    // 기존 예약 제거(중복 방지)
+    await cancelFoodNotifications(foodItem.id);
+
+    // 중복 알림 방지 키 (즉시 발송 시에만 적용)
+    const duplicateKey = `expiry_${foodItem.id}`;
+    const lastNotificationTime = await AsyncStorage.getItem(duplicateKey);
+
+    console.log(`유통기한 알림 계산: ${foodItem.name}`);
+    console.log(`유통기한: ${foodItem.expirationDate}`);
+    console.log(`오늘: ${today.toISOString().split('T')[0]}`);
+    console.log(`설정된 알림일: ${settings.expiryDays}`);
+    
+    // 현재 날짜로부터 가장 가까운 알림 시점 찾기
+    let closestNotification = null;
+    let closestDays = Infinity;
+
+    for (const days of settings.expiryDays) {
+      // 목표 날짜 계산 후 사용자가 설정한 시간으로 맞춤
+      const target = new Date(expiryDateOnly.getTime() - (days * 24 * 60 * 60 * 1000));
+      const triggerDateOnly = new Date(target.getFullYear(), target.getMonth(), target.getDate(), hh || 9, mm || 0, 0, 0);
+      
+      console.log(`${days}일 전 알림 시점: ${triggerDateOnly.toISOString().split('T')[0]}`);
+      
+      const isSameDay = triggerDateOnly.getFullYear() === now.getFullYear() && triggerDateOnly.getMonth() === now.getMonth() && triggerDateOnly.getDate() === now.getDate();
+      const isPastNow = triggerDateOnly.getTime() <= now.getTime();
+      // 오늘이고 설정 시각을 이미 지나쳤다면, 즉시 알림 대상으로 간주
+      if (!isSameDay && isPastNow) {
+        console.log(`과거 시간이므로 스킵: ${days}일 전`);
+        continue;
+      }
+
+      const daysUntilTrigger = Math.ceil((new Date(triggerDateOnly.getFullYear(), triggerDateOnly.getMonth(), triggerDateOnly.getDate()) - today) / (1000 * 60 * 60 * 24));
+      console.log(`알림까지 남은 일수: ${daysUntilTrigger}일`);
+      
+      // 가장 가까운 시점 찾기
+      if (daysUntilTrigger < closestDays) {
+        closestDays = daysUntilTrigger;
+        closestNotification = {
+          days,
+          triggerDate: triggerDateOnly,
+          fireNow: isSameDay && isPastNow,
+          title: days === 0 ? '유통기한 만료 알림' : '유통기한 임박 알림',
+          body: days === 0 
+            ? `${foodItem.name}의 유통기한이 오늘입니다.`
+            : `${foodItem.name}의 유통기한이 ${days}일 남았습니다.`
+        };
+        console.log(`가장 가까운 알림으로 설정: ${days}일 전`);
+      }
+    }
 
     const scheduledNotifications = [];
 
-    for (const notification of notificationTimes) {
-      const triggerDate = new Date(expiryDate);
-      triggerDate.setDate(triggerDate.getDate() - notification.days);
-      
-      // 과거 시간이면 스킵
-      if (triggerDate <= now) continue;
+    // 가장 가까운 알림만 예약
+    if (closestNotification) {
+      // 즉시 발송 중복 방지 (마지막 발송에서 24시간 이내면 스킵)
+      if (closestNotification.fireNow && lastNotificationTime) {
+        const timeDiff = now.getTime() - parseInt(lastNotificationTime);
+        if (timeDiff < 24 * 60 * 60 * 1000) {
+          console.log(`중복 유통기한 알림 방지(즉시): ${foodItem.name}`);
+          return null;
+        }
+      }
 
-      const identifier = await Notifications.scheduleNotificationAsync({
-        content: {
-          title: notification.title,
-          body: notification.body,
-          data: { 
-            type: 'expiry',
-            foodId: foodItem.id,
-            foodName: foodItem.name,
-            daysLeft: notification.days
-          },
-        },
-        trigger: {
-          date: triggerDate,
-        },
-      });
-
-      // 알림 히스토리에 저장
-      await saveNotificationHistory({
-        type: 'expiry',
-        title: notification.title,
-        body: notification.body,
-        data: { 
+      const content = {
+        title: closestNotification.title,
+        body: closestNotification.body,
+        data: {
+          type: 'expiry',
           foodId: foodItem.id,
           foodName: foodItem.name,
-          daysLeft: notification.days
+          daysLeft: closestNotification.days,
         },
-        scheduledDate: triggerDate,
-        daysLeft: notification.days
-      });
+        sound: settings.soundEnabled === true,
+        vibrationPattern: settings.vibrationEnabled ? [0, 250, 250, 250] : undefined,
+      };
 
+      const identifier = await scheduleAtDate(
+        closestNotification.fireNow ? null : closestNotification.triggerDate,
+        content,
+        closestNotification.fireNow,
+      );
+
+      // 알림 히스토리는 실제 발송 시에만 저장 (스케줄링 시에는 저장하지 않음)
       scheduledNotifications.push({
         id: identifier,
         foodId: foodItem.id,
         type: 'expiry',
-        scheduledDate: triggerDate,
-        daysLeft: notification.days
+        scheduledDate: closestNotification.triggerDate,
+        daysLeft: closestNotification.days
       });
 
-      console.log(`유통기한 알림 예약됨: ${foodItem.name} - ${notification.days}일 전`);
+      console.log(`유통기한 알림 예약 성공: ${foodItem.name} - ${closestNotification.days}일 전 (${closestNotification.triggerDate.toISOString().split('T')[0]})`);
+    } else {
+      console.log(`예약할 유통기한 알림이 없음: ${foodItem.name}`);
     }
 
-    // 통계 업데이트
-    try {
-      await StatisticsService.addNotificationSent();
-    } catch (statError) {
-      console.error('알림 통계 업데이트 실패:', statError);
+    // 중복 방지를 위한 타임스탬프 저장
+    if (scheduledNotifications.length > 0) {
+      await AsyncStorage.setItem(duplicateKey, now.getTime().toString());
     }
 
     // 예약된 알림 정보를 AsyncStorage에 저장
@@ -193,10 +295,91 @@ export async function scheduleExpiryNotification(foodItem) {
   }
 }
 
+// 유통기한 알림 발송 후 다음 알림 예약
+export async function scheduleNextExpiryNotification(foodItem, currentDaysLeft) {
+  try {
+    const settings = await loadNotificationSettings();
+    
+    // 유통기한 알림이 비활성화되어 있으면 스킵
+    if (!settings.expiryEnabled) {
+      return null;
+    }
+
+    const [hh, mm] = String(settings.dailyTime || '09:00').split(':').map(v => parseInt(v, 10));
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const expiryDateOnly = parseAnyDate(foodItem.expirationDate);
+    
+    // 유통기한이 이미 지났으면 알림 예약하지 않음
+    if (expiryDateOnly <= today) {
+      return null;
+    }
+
+    // 현재 알림보다 더 가까운 시점의 알림 찾기
+    const remainingNotifications = settings.expiryDays
+      .filter(days => days < currentDaysLeft) // 현재보다 더 가까운 시점만
+      .sort((a, b) => b - a); // 큰 수부터 정렬 (가장 가까운 시점이 마지막)
+
+    if (remainingNotifications.length === 0) {
+      return null; // 더 이상 예약할 알림이 없음
+    }
+
+    // 다음 알림 시점 (가장 가까운 시점)
+    const nextDays = remainingNotifications[0];
+    
+    // 더 안전한 날짜 계산: 밀리초 단위로 계산 후 날짜로 변환
+    const target = new Date(expiryDateOnly.getTime() - (nextDays * 24 * 60 * 60 * 1000));
+    const triggerDateOnly = new Date(target.getFullYear(), target.getMonth(), target.getDate(), hh || 9, mm || 0, 0, 0);
+    
+    // 과거 시간이면 스킵
+    if (triggerDateOnly.getTime() <= now.getTime()) {
+      return null;
+    }
+
+    const identifier = await scheduleAtDate(
+      triggerDateOnly,
+      {
+        title: nextDays === 0 ? '유통기한 만료 알림' : '유통기한 임박 알림',
+        body: nextDays === 0
+          ? `${foodItem.name}의 유통기한이 오늘입니다.`
+          : `${foodItem.name}의 유통기한이 ${nextDays}일 남았습니다.`,
+        data: {
+          type: 'expiry',
+          foodId: foodItem.id,
+          foodName: foodItem.name,
+          daysLeft: nextDays,
+        },
+        sound: settings.soundEnabled === true,
+        vibrationPattern: settings.vibrationEnabled ? [0, 250, 250, 250] : undefined,
+      },
+      false,
+    );
+
+    console.log(`다음 유통기한 알림 예약됨: ${foodItem.name} - ${nextDays}일 전`);
+    return identifier;
+  } catch (error) {
+    console.error('다음 유통기한 알림 예약 실패:', error);
+    return null;
+  }
+}
+
 // 재고 부족 알림 예약
 export async function scheduleStockNotification(foodItem) {
   try {
     const settings = await loadNotificationSettings();
+    
+    // 재고 알림이 비활성화되어 있으면 스킵
+    if (!settings.stockEnabled) {
+      console.log('재고 알림이 비활성화되어 있습니다.');
+      return null;
+    }
+
+    // 우선순위 모드가 silent이면 스킵
+    if (settings.priorityMode === 'silent') {
+      console.log('알림 우선순위가 조용함 모드입니다.');
+      return null;
+    }
+
     const lowStockThreshold = settings.stockThreshold; // 사용자 설정 임계값
     
     if (foodItem.quantity > lowStockThreshold) {
@@ -220,24 +403,12 @@ export async function scheduleStockNotification(foodItem) {
           foodName: foodItem.name,
           quantity: foodItem.quantity
         },
+        sound: settings.soundEnabled === true,
+        vibrationPattern: settings.vibrationEnabled ? [0, 250, 250, 250] : undefined,
       },
       trigger: {
         seconds: 1, // 즉시 알림
       },
-    });
-
-    // 알림 히스토리에 저장
-    await saveNotificationHistory({
-      type: 'stock',
-      title: '재고 부족 알림',
-      body: `${foodItem.name}의 재고가 부족합니다. (${foodItem.quantity}개 남음)`,
-      data: { 
-        foodId: foodItem.id,
-        foodName: foodItem.name,
-        quantity: foodItem.quantity
-      },
-      scheduledDate: new Date(),
-      quantity: foodItem.quantity
     });
 
     // 최근 재고 알림 정보 저장 (중복 방지용)
@@ -270,49 +441,7 @@ export async function scheduleStockNotification(foodItem) {
   }
 }
 
-// 정기 알림 예약 (사용자 설정 시간)
-export async function scheduleDailyNotification() {
-  try {
-    const settings = await loadNotificationSettings();
-    const [hours, minutes] = settings.dailyTime.split(':').map(Number);
-    
-    const identifier = await Notifications.scheduleNotificationAsync({
-      content: {
-        title: 'EatSoon 일일 알림',
-        body: '오늘의 음식 재고를 확인해보세요!',
-        data: { type: 'daily' },
-      },
-      trigger: {
-        hour: hours,
-        minute: minutes,
-        repeats: true, // 매일 반복
-      },
-    });
-
-    // 알림 히스토리에 저장
-    await saveNotificationHistory({
-      type: 'daily',
-      title: 'EatSoon 일일 알림',
-      body: '오늘의 음식 재고를 확인해보세요!',
-      data: { type: 'daily' },
-      scheduledDate: new Date(),
-    });
-
-    console.log(`정기 알림 예약됨: 매일 ${settings.dailyTime}`);
-    
-    // 통계 업데이트
-    try {
-      await StatisticsService.addNotificationSent();
-    } catch (statError) {
-      console.error('알림 통계 업데이트 실패:', statError);
-    }
-    
-    return identifier;
-  } catch (error) {
-    console.error('정기 알림 예약 실패:', error);
-    return null;
-  }
-}
+// 알림 취소 함수들
 
 // 알림 취소 함수
 export async function cancelNotification(notificationId) {
@@ -350,6 +479,21 @@ export async function cancelFoodNotifications(foodId) {
 export async function cancelAllNotifications() {
   try {
     await Notifications.cancelAllScheduledNotificationsAsync();
+    
+    // AsyncStorage에서 알림 관련 데이터도 정리
+    const keys = await AsyncStorage.getAllKeys();
+    const notificationKeys = keys.filter(key => 
+      key.startsWith('expiry_') || 
+      key.startsWith('stock_') || 
+      key.startsWith('scheduled_notifications_') ||
+      key.startsWith('recent_stock_notification_')
+    );
+    
+    if (notificationKeys.length > 0) {
+      await AsyncStorage.multiRemove(notificationKeys);
+      console.log(`${notificationKeys.length}개의 알림 관련 데이터가 정리되었습니다.`);
+    }
+    
     await AsyncStorage.removeItem('scheduledNotifications');
     console.log('모든 알림이 취소됨');
     return true;
@@ -447,19 +591,28 @@ export async function loadNotificationSettings() {
       expiryEnabled: true,
       stockEnabled: true,
       dailyEnabled: false,
+      smartEnabled: true,
+      recipeEnabled: true,
       expiryDays: [3, 1, 0], // 3일 전, 1일 전, 당일
       dailyTime: '09:00', // 오전 9시
-      stockThreshold: 2 // 재고 부족 임계값
+      stockThreshold: 2, // 재고 부족 임계값
+      smartThreshold: 5, // 스마트 알림 임계값
+      quietHours: { start: '22:00', end: '08:00' }, // 방해 금지 시간
+      priorityMode: 'normal', // normal, urgent, silent
+      vibrationEnabled: true,
+      soundEnabled: true
     };
   } catch (error) {
     console.error('알림 설정 불러오기 실패:', error);
     return {
       expiryEnabled: true,
       stockEnabled: true,
-      dailyEnabled: false,
       expiryDays: [3, 1, 0],
-      dailyTime: '09:00',
-      stockThreshold: 2
+      stockThreshold: 2,
+      quietHours: { start: '22:00', end: '08:00' },
+      priorityMode: 'normal',
+      vibrationEnabled: true,
+      soundEnabled: true
     };
   }
 }
