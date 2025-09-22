@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, FlatList, ActivityIndicator, TouchableOpacity, Image, StyleSheet, ScrollView, Alert, TextInput } from 'react-native';
+import { View, Text, FlatList, ActivityIndicator, TouchableOpacity, Image, StyleSheet } from 'react-native';
 import { auth } from '../config/firebase';
-import { subscribePantry, fetchRecipesOnce, seedRecipesIfEmpty, dedupeRecipesByName } from '../services/firestore';
-import { recommendRecipes, searchRecipes, recommendByExpiringIngredients, recommendByAvailableIngredients, indexPantry, scoreRecipe } from '../utils/recommendation';
+import { subscribePantry, fetchRecipesOnce, seedRecipesIfEmpty, dedupeRecipesByName, addCrawledRecipes, replaceWithCrawledRecipes } from '../services/firestore';
+import { recommendRecipes } from '../utils/recommendation';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Theme } from '../utils/colors';
 import { 
@@ -13,13 +13,80 @@ import {
   SectionHeader
 } from '../components/StyledComponents';
 
+// 매칭 상태를 시각적으로 보여주는 컴포넌트
+const MatchingProgress = ({ matchCount = 0, neededCount = 0, missing = [] }) => {
+  console.log('MatchingProgress props:', { matchCount, neededCount, missing });
+  
+  const progress = neededCount > 0 ? matchCount / neededCount : 0;
+  const progressPercentage = Math.round(progress * 100);
+  
+  // 매칭 정도에 따른 색상 결정
+  const getProgressColor = () => {
+    if (progressPercentage >= 100) return Colors.success;
+    if (progressPercentage >= 75) return Colors.info;
+    if (progressPercentage >= 50) return Colors.warning;
+    return Colors.danger;
+  };
+  
+  return (
+    <View style={styles.matchingContainer}>
+      {/* 프로그레스 바 */}
+      <View style={styles.progressContainer}>
+        <View style={styles.progressBar}>
+          <View 
+            style={[
+              styles.progressFill, 
+              { 
+                width: `${progressPercentage}%`,
+                backgroundColor: getProgressColor()
+              }
+            ]} 
+          />
+        </View>
+        <Text style={styles.progressText}>
+          {matchCount}/{neededCount} ({progressPercentage}%)
+        </Text>
+      </View>
+      
+      {/* 재료 상태 표시 */}
+      <View style={styles.ingredientsContainer}>
+        <Text style={styles.ingredientsLabel}>재료 상태:</Text>
+        <View style={styles.ingredientsGrid}>
+          {/* 보유한 재료들 */}
+          {Array.from({ length: matchCount }, (_, index) => (
+            <View key={`have-${index}`} style={styles.ingredientHave}>
+              <Ionicons name="checkmark-circle" size={20} color={Colors.success} />
+            </View>
+          ))}
+          {/* 부족한 재료들 */}
+          {Array.from({ length: neededCount - matchCount }, (_, index) => (
+            <View key={`missing-${index}`} style={styles.ingredientMissing}>
+              <Ionicons name="close-circle" size={20} color={Colors.danger} />
+            </View>
+          ))}
+        </View>
+      </View>
+      
+      {/* 부족한 재료 목록 */}
+      {missing && missing.length > 0 && (
+        <View style={styles.missingContainer}>
+          <Text style={styles.missingLabel}>부족한 재료:</Text>
+          <Text style={styles.missingText}>
+            {missing.map(item => item.name).join(', ')}
+          </Text>
+        </View>
+      )}
+    </View>
+  );
+};
 
 export default function RecipeRecommendationScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
   const [pantry, setPantry] = useState([]);
   const [recipes, setRecipes] = useState([]);
-  const [activeTab, setActiveTab] = useState('all'); // 'all', 'expiring', 'available'
-  const [searchQuery, setSearchQuery] = useState('');
+
+  const [onlyFullMatch, setOnlyFullMatch] = useState(false);
+  const [maxMissing, setMaxMissing] = useState(99);
 
   useEffect(() => {
     let unsubAuth;
@@ -31,9 +98,8 @@ export default function RecipeRecommendationScreen({ navigation }) {
         return;
       }
       unsubPantry = subscribePantry(setPantry);
-      // replaceWithCrawledRecipes() 제거 - Firebase에 이미 크롤링된 레시피만 있음
+      await replaceWithCrawledRecipes(); // 기존 레시피 삭제 후 크롤링된 레시피로 교체
       const r = await fetchRecipesOnce();
-      console.log('📥 fetched recipe sample keys:', r[0] ? Object.keys(r[0]) : 'none');
       setRecipes(r);
       setLoading(false);
     });
@@ -44,45 +110,47 @@ export default function RecipeRecommendationScreen({ navigation }) {
   const ranked = useMemo(() => {
     if (loading) return [];
     
-    console.log('🔍 레시피 추천 로직 시작:', { 
-      recipesCount: recipes.length, 
-      activeTab, 
-      searchQuery,
-      pantryCount: pantry.length 
+    // 테스트용 레시피가 없으면 추가
+    if (recipes.length === 0) {
+      const testRecipes = [
+        {
+          id: 'test-1',
+          name: '김치찌개',
+          ingredients: [
+            { name: '김치', quantity: 1, unit: '컵' },
+            { name: '돼지고기', quantity: 200, unit: 'g' },
+            { name: '두부', quantity: 1, unit: '모' },
+            { name: '대파', quantity: 1, unit: '대' }
+          ]
+        },
+        {
+          id: 'test-2', 
+          name: '된장찌개',
+          ingredients: [
+            { name: '된장', quantity: 2, unit: '큰술' },
+            { name: '두부', quantity: 1, unit: '모' },
+            { name: '애호박', quantity: 1, unit: '개' },
+            { name: '양파', quantity: 1, unit: '개' }
+          ]
+        }
+      ];
+      const result = recommendRecipes(testRecipes, pantry, {
+        topK: 50,
+        maxMissing,
+        onlyFullMatch,
+      });
+      console.log('Test recipes result:', result);
+      return result;
+    }
+    
+    const result = recommendRecipes(recipes, pantry, {
+      topK: 50,
+      maxMissing,
+      onlyFullMatch,
     });
-    
-    let filteredRecipes = recipes;
-    
-    // 검색 기능
-    if (searchQuery.trim()) {
-      filteredRecipes = searchRecipes(recipes, searchQuery);
-      console.log('🔍 검색 결과:', filteredRecipes.length);
-    }
-    
-    // 탭별 추천 로직
-    let result;
-    switch (activeTab) {
-      case 'expiring':
-        result = recommendByExpiringIngredients(filteredRecipes, pantry);
-        console.log('⏰ 유통기한 임박 추천:', result.length);
-        break;
-      case 'available':
-        result = recommendByAvailableIngredients(filteredRecipes, pantry);
-        console.log('✅ 현재 재료로 추천:', result.length);
-        break;
-      case 'all':
-      default:
-        const pantryIdx = indexPantry(pantry);
-        result = filteredRecipes.map(recipe => {
-          return { ...recipe, ...scoreRecipe(recipe, pantryIdx) };
-        }).sort((a, b) => b.score - a.score);
-        console.log('📋 전체 레시피:', result.length);
-        break;
-    }
-    
-    console.log('🎯 최종 추천 결과:', result.slice(0, 5).map(r => r.name));
+    console.log('Ranked recipes:', result.slice(0, 3)); // 처음 3개 레시피 로그
     return result;
-  }, [loading, recipes, pantry, activeTab, searchQuery]);
+  }, [loading, recipes, pantry, maxMissing, onlyFullMatch]);
 
   if (loading) return (
     <Container>
@@ -95,142 +163,141 @@ export default function RecipeRecommendationScreen({ navigation }) {
 
   return (
     <Container>
-      <ScrollView 
-        style={styles.scrollContainer}
-        showsVerticalScrollIndicator={true}
-        scrollEnabled={true}
-        contentContainerStyle={{ flexGrow: 1 }}
-      >
-        {/* 검색창 */}
-        <View style={styles.searchContainer}>
-          <Text style={styles.searchLabel}>🔍 레시피 검색</Text>
-          <View style={styles.searchInputContainer}>
-            <Ionicons name="search" size={20} color={Colors.textSecondary} style={styles.searchIcon} />
-            <TextInput
-              style={styles.searchInput}
-              placeholder="된장찌개, 김치 등 검색"
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              placeholderTextColor={Colors.textSecondary}
-            />
-            {searchQuery.length > 0 && (
-              <TouchableOpacity onPress={() => setSearchQuery('')} style={styles.clearButton}>
-                <Ionicons name="close-circle" size={20} color={Colors.textSecondary} />
-              </TouchableOpacity>
+      {/* 필터 버튼들 */}
+      <View style={styles.filterContainer}>
+        <TouchableOpacity
+          style={[styles.filterButton, onlyFullMatch && styles.filterButtonActive]}
+          onPress={() => setOnlyFullMatch(!onlyFullMatch)}
+        >
+          <Ionicons 
+            name={onlyFullMatch ? "checkmark-circle" : "ellipse-outline"} 
+            size={16} 
+            color={onlyFullMatch ? Colors.white : Colors.textSecondary} 
+          />
+          <Text style={[styles.filterButtonText, onlyFullMatch && styles.filterButtonTextActive]}>
+            완전매칭
+          </Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity
+          style={[styles.filterButton, maxMissing <= 1 && styles.filterButtonActive]}
+          onPress={() => setMaxMissing(maxMissing <= 1 ? 99 : 1)}
+        >
+          <Ionicons 
+            name={maxMissing <= 1 ? "checkmark-circle" : "ellipse-outline"} 
+            size={16} 
+            color={maxMissing <= 1 ? Colors.white : Colors.textSecondary} 
+          />
+          <Text style={[styles.filterButtonText, maxMissing <= 1 && styles.filterButtonTextActive]}>
+            부족≤1
+          </Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity
+          style={styles.filterButton}
+          onPress={() => { setOnlyFullMatch(false); setMaxMissing(99); }}
+        >
+          <Ionicons name="refresh" size={16} color={Colors.textSecondary} />
+          <Text style={styles.filterButtonText}>초기화</Text>
+        </TouchableOpacity>
+      </View>
+
+      <FlatList
+        data={ranked}
+        keyExtractor={(item) => item.id}
+        renderItem={({ item }) => (
+          <Card style={styles.recipeCard}>
+            {item.imageUrl ? (
+              <Image source={{ uri: item.imageUrl }} style={styles.recipeImage} resizeMode="cover" />
+            ) : (
+              <View style={styles.recipeImagePlaceholder}>
+                <Ionicons name="restaurant" size={48} color={Colors.textSecondary} />
+              </View>
             )}
-          </View>
-        </View>
-
-        {/* 탭 버튼들 */}
-        <View style={styles.tabContainer}>
-          <TouchableOpacity
-            style={[styles.tabButton, activeTab === 'all' && styles.tabButtonActive]}
-            onPress={() => setActiveTab('all')}
-          >
-            <Text style={[styles.tabButtonText, activeTab === 'all' && styles.tabButtonTextActive]}>
-              전체
-            </Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity
-            style={[styles.tabButton, activeTab === 'expiring' && styles.tabButtonActive]}
-            onPress={() => setActiveTab('expiring')}
-          >
-            <Text style={[styles.tabButtonText, activeTab === 'expiring' && styles.tabButtonTextActive]}>
-              유통기한 임박
-            </Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity
-            style={[styles.tabButton, activeTab === 'available' && styles.tabButtonActive]}
-            onPress={() => setActiveTab('available')}
-          >
-            <Text style={[styles.tabButtonText, activeTab === 'available' && styles.tabButtonTextActive]}>
-              현재 재료로
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* 레시피 리스트 */}
-        <View style={styles.recipeListContainer}>
-          {ranked.map((item) => (
-            <Card key={item.id} style={styles.recipeCard}>
-              {/* 이미지는 명확한 경우에만 표시 */}
-              {item.imageUrl && item.imageUrl.includes('unsplash.com') ? (
-                <Image source={{ uri: item.imageUrl }} style={styles.recipeImage} resizeMode="cover" />
-              ) : null}
+            
+            <View style={styles.recipeContent}>
+              <Text style={styles.recipeTitle}>{item.title || item.name}</Text>
               
-              <View style={styles.recipeContent}>
-                <Text style={styles.recipeTitle}>{item.title || item.name}</Text>
-                
-                {/* 매칭 상태 표시 */}
-                <View style={styles.matchingInfo}>
-                  <Text style={styles.matchingText}>
-                    재료: {item.matchCount || 0}/{item.neededCount || 0} 보유
-                    {item.missing && item.missing.length > 0 && (
-                      <Text style={styles.missingText}>
-                        {' '}(부족: {item.missing.length}개)
-                      </Text>
-                    )}
-                  </Text>
-                </View>
-                
-                <View style={styles.recipeActions}>
+              {/* 매칭 상태 시각화 */}
+              <MatchingProgress 
+                matchCount={item.matchCount}
+                neededCount={item.neededCount}
+                missing={item.missing}
+              />
+              
+              <View style={styles.recipeActions}>
                   <Button
                     style={[styles.actionButton, styles.shoppingButton]}
                     onPress={async () => {
-                      const { addItem } = await import('../utils/shoppingList');
-                      if (item.missing && item.missing.length > 0) {
-                        // 각 부족한 재료를 개별 항목으로 추가
-                        for (const missingItem of item.missing) {
-                          await addItem(missingItem.name, 1, missingItem.unit || '개');
-                        }
-                        Alert.alert('완료', `${item.missing.length}개 재료가 장보기 리스트에 추가되었습니다.`);
-                      } else {
-                        Alert.alert('알림', '부족한 재료가 없습니다.');
-                      }
+                      const { addItemsMerged } = await import('../utils/shoppingList');
+                      await addItemsMerged(item.missing, { recipeId: item.id });
                       navigation.navigate('ShoppingList');
                     }}
                   >
                     <Ionicons name="cart" size={16} color={Colors.white} />
                     <ButtonText style={styles.actionButtonText}>장보기에 담기</ButtonText>
                   </Button>
-                  
-                  <Button
-                    style={[styles.actionButton, styles.detailButton]}
-                    onPress={() => {
-                      console.log('🔎 navigate recipe servings:', item?.servings, typeof item?.servings);
-                      navigation.navigate('RecipeDetail', { recipe: item });
-                    }}
-                  >
-                    <Ionicons name="eye" size={16} color={Colors.white} />
-                    <ButtonText style={styles.actionButtonText}>자세히 보기</ButtonText>
-                  </Button>
-                </View>
+                )}
+                
+                <Button
+                  style={[styles.actionButton, styles.detailButton]}
+                  onPress={() => {
+                    const safe = {
+                      id: item.id,
+                      name: item.name,
+                      imageUrl: item.imageUrl,
+                      ingredients: item.ingredients,
+                      steps: item.steps,
+                    };
+                    navigation.navigate('RecipeDetail', { recipe: safe });
+                  }}
+                >
+                  <Ionicons name="eye" size={16} color={Colors.white} />
+                  <ButtonText style={styles.actionButtonText}>자세히 보기</ButtonText>
+                </Button>
               </View>
-            </Card>
-          ))}
-          
-          {ranked.length === 0 && (
-            <View style={styles.emptyContainer}>
-              <Ionicons name="restaurant-outline" size={64} color={Colors.textSecondary} />
-              <Text style={styles.emptyTitle}>조건에 맞는 레시피가 없습니다</Text>
-              <Text style={styles.emptySubtitle}>필터를 조정해보세요</Text>
             </View>
-          )}
-        </View>
-      </ScrollView>
+          </Card>
+        )}
+        ListEmptyComponent={
+          <View style={styles.emptyContainer}>
+            <Ionicons name="restaurant-outline" size={64} color={Colors.textSecondary} />
+            <Text style={styles.emptyTitle}>조건에 맞는 레시피가 없습니다</Text>
+            <Text style={styles.emptySubtitle}>필터를 조정하거나 샘플 레시피를 추가해보세요</Text>
+            
+            <View style={styles.emptyActions}>
+              <Button
+                style={styles.emptyButton}
+                onPress={async () => { 
+                  await replaceWithCrawledRecipes(); // 크롤링된 레시피로 교체
+                  const r = await fetchRecipesOnce(); 
+                  setRecipes(r); 
+                }}
+              >
+                <Ionicons name="add" size={16} color={Colors.white} />
+                <ButtonText style={styles.emptyButtonText}>크롤링 레시피 로드</ButtonText>
+              </Button>
+              
+              <Button
+                style={styles.emptyButton}
+                onPress={async () => { 
+                  await dedupeRecipesByName(); 
+                  const r = await fetchRecipesOnce(); 
+                  setRecipes(r); 
+                }}
+              >
+                <Ionicons name="refresh" size={16} color={Colors.white} />
+                <ButtonText style={styles.emptyButtonText}>중복정리</ButtonText>
+              </Button>
+            </View>
+          </View>
+        }
+      />
     </Container>
   );
 }
 
 const styles = StyleSheet.create({
-  scrollContainer: {
-    flex: 1,
-  },
-  recipeListContainer: {
-    paddingBottom: 100,
-  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -241,78 +308,37 @@ const styles = StyleSheet.create({
     fontSize: Theme.typography.body.fontSize,
     color: Colors.textSecondary,
   },
-  searchContainer: {
+  filterContainer: {
+    flexDirection: 'row',
     paddingHorizontal: Theme.spacing.md,
     paddingVertical: Theme.spacing.sm,
+    gap: Theme.spacing.sm,
     backgroundColor: Colors.surface,
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
   },
-  searchLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: Colors.textPrimary,
-    marginBottom: Theme.spacing.sm,
-  },
-  searchInputContainer: {
+  filterButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.background,
+    paddingHorizontal: Theme.spacing.md,
+    paddingVertical: Theme.spacing.sm,
     borderRadius: Theme.borderRadius.round,
+    backgroundColor: Colors.background,
     borderWidth: 1,
     borderColor: Colors.border,
-    paddingHorizontal: Theme.spacing.md,
-    paddingVertical: Theme.spacing.sm,
+    gap: Theme.spacing.xs,
   },
-  searchIcon: {
-    marginRight: Theme.spacing.sm,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: Theme.typography.body.fontSize,
-    color: Colors.textPrimary,
-  },
-  clearButton: {
-    marginLeft: Theme.spacing.sm,
-  },
-  tabContainer: {
-    flexDirection: 'row',
-    paddingHorizontal: Theme.spacing.md,
-    paddingVertical: Theme.spacing.sm,
-    backgroundColor: Colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-  },
-  tabButton: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: Theme.spacing.sm,
-    paddingHorizontal: Theme.spacing.md,
-    borderRadius: Theme.borderRadius.round,
-    backgroundColor: Colors.background,
-    marginHorizontal: 2,
-  },
-  tabButtonActive: {
+  filterButtonActive: {
     backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
   },
-  tabButtonText: {
+  filterButtonText: {
     fontSize: Theme.typography.small.fontSize,
     color: Colors.textSecondary,
     fontWeight: '500',
   },
-  tabButtonTextActive: {
+  filterButtonTextActive: {
     color: Colors.white,
-  },
-  matchingInfo: {
-    marginVertical: Theme.spacing.sm,
-  },
-  matchingText: {
-    fontSize: Theme.typography.small.fontSize,
-    color: Colors.textSecondary,
-  },
-  missingText: {
-    color: Colors.danger,
-    fontWeight: '500',
   },
   recipeCard: {
     marginHorizontal: Theme.spacing.md,
@@ -338,6 +364,90 @@ const styles = StyleSheet.create({
     fontSize: Theme.typography.h4.fontSize,
     fontWeight: '700',
     color: Colors.textPrimary,
+  },
+  matchingContainer: {
+    backgroundColor: Colors.surface,
+    padding: Theme.spacing.md,
+    borderRadius: Theme.borderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    gap: Theme.spacing.sm,
+  },
+  progressContainer: {
+    alignItems: 'center',
+    gap: Theme.spacing.xs,
+  },
+  progressBar: {
+    width: '100%',
+    height: 12,
+    backgroundColor: Colors.border,
+    borderRadius: Theme.borderRadius.round,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: Theme.borderRadius.round,
+  },
+  progressText: {
+    fontSize: Theme.typography.small.fontSize,
+    color: Colors.textPrimary,
+    fontWeight: '600',
+  },
+  ingredientsContainer: {
+    gap: Theme.spacing.xs,
+  },
+  ingredientsLabel: {
+    fontSize: Theme.typography.small.fontSize,
+    color: Colors.textSecondary,
+    fontWeight: '600',
+  },
+  ingredientsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Theme.spacing.xs,
+  },
+  ingredientHave: {
+    width: 28,
+    height: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: Colors.success + '15',
+    borderRadius: Theme.borderRadius.round,
+    borderWidth: 1,
+    borderColor: Colors.success + '30',
+  },
+  ingredientMissing: {
+    width: 28,
+    height: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: Colors.danger + '15',
+    borderRadius: Theme.borderRadius.round,
+    borderWidth: 1,
+    borderColor: Colors.danger + '30',
+  },
+  missingContainer: {
+    padding: Theme.spacing.sm,
+    backgroundColor: Colors.warning + '10',
+    borderRadius: Theme.borderRadius.sm,
+    borderLeftWidth: 3,
+    borderLeftColor: Colors.warning,
+  },
+  missingLabel: {
+    fontSize: Theme.typography.small.fontSize,
+    color: Colors.warning,
+    fontWeight: '600',
+    marginBottom: Theme.spacing.xs,
+  },
+  missingText: {
+    fontSize: Theme.typography.small.fontSize,
+    color: Colors.textSecondary,
+    lineHeight: 18,
   },
   recipeActions: {
     flexDirection: 'row',

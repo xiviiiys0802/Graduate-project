@@ -23,3 +23,4 @@ python final_recipe_crawler.py
 ## 5. 결과 확인
 - `final_recipes.json`: 로컬 저장된 레시피 데이터
 - Firebase Firestore: `recipes` 컬렉션에 `final_` 접두사로 저장
+

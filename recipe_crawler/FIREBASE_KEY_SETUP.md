@@ -25,3 +25,4 @@ python final_recipe_crawler.py
 - 각각 다른 요리로 취급 (간장떡볶이 ≠ 일반떡볶이)
 - 점수 기반으로 상위 100개 선별
 - Firebase Firestore에 `final_` 접두사로 저장
+
