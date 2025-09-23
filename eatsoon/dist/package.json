@@ -1,0 +1,13 @@
+{
+  "name": "eatsoon-web",
+  "version": "1.0.0",
+  "description": "EatSoon Web App",
+  "main": "index.html",
+  "scripts": {
+    "build": "echo 'Already built'",
+    "start": "echo 'Static files ready'"
+  },
+  "dependencies": {},
+  "devDependencies": {},
+  "private": true
+}
