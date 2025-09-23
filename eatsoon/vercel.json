@@ -1,0 +1,7 @@
+{
+  "buildCommand": "echo 'Static files already built'",
+  "outputDirectory": ".",
+  "installCommand": "echo 'No install needed'",
+  "framework": null,
+  "public": true
+}
