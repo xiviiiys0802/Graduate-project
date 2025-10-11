@@ -17,21 +17,31 @@
         "NSAppTransportSecurity": {
           "NSAllowsArbitraryLoads": true
         }
-      }
+      },
+      "runtimeVersion": "1.0.0"
     },
-
-  
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.amsrj.eatsoon"
+      "package": "com.amsrj.eatsoon",
+      "runtimeVersion": {
+        "policy": "appVersion"
+      }
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
-    "owner": "bomiy"    
+    "owner": "amsrj",
+    "extra": {
+      "eas": {
+        "projectId": "3636ec72-9fec-4137-9bb0-a5a6a9bbfe38"
+      }
+    },
+    "updates": {
+      "url": "https://u.expo.dev/3636ec72-9fec-4137-9bb0-a5a6a9bbfe38"
+    }
   }
 }
