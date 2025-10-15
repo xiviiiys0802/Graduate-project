@@ -13,10 +13,14 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
+      "bundleIdentifier": "com.amsrj.eatsoon",
+      "buildNumber": "1",
       "infoPlist": {
         "NSAppTransportSecurity": {
           "NSAllowsArbitraryLoads": true
-        }
+        },
+        "NSCameraUsageDescription": "이 앱은 음식 사진을 촬영하기 위해 카메라에 접근합니다.",
+        "NSMicrophoneUsageDescription": "이 앱은 음성 인식을 위해 마이크에 접근합니다."
       }
     },
 
@@ -27,11 +31,22 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.amsrj.eatsoon"
+      "package": "com.amsrj.eatsoon",
+      "versionCode": 1,
+      "permissions": [
+        "CAMERA",
+        "RECORD_AUDIO",
+        "INTERNET",
+        "ACCESS_NETWORK_STATE"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
-    "owner": "bomiy"    
+    "owner": "xiviiiys08",
+    "scheme": "eatsoon",
+    "developmentClient": {
+      "silentLaunch": true
+    }
   }
 }

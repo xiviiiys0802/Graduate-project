@@ -26,3 +26,5 @@ python final_recipe_crawler.py
 - 점수 기반으로 상위 100개 선별
 - Firebase Firestore에 `final_` 접두사로 저장
 
+
+
