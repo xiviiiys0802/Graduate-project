@@ -60,7 +60,28 @@ export const AuthProvider = ({ children }) => {
       return userCredential.user;
     } catch (error) {
       console.error('로그인 실패:', error);
-      throw error;
+      
+      // 사용자 친화적인 오류 메시지로 변환
+      let errorMessage = '로그인이 잘못되었습니다. 확인해주세요.';
+      
+      switch (error.code) {
+        case 'auth/user-not-found':
+        case 'auth/wrong-password':
+        case 'auth/invalid-email':
+        case 'auth/user-disabled':
+          errorMessage = '로그인이 잘못되었습니다. 확인해주세요.';
+          break;
+        case 'auth/too-many-requests':
+          errorMessage = '너무 많은 시도로 인해 일시적으로 차단되었습니다. 잠시 후 다시 시도해주세요.';
+          break;
+        case 'auth/network-request-failed':
+          errorMessage = '네트워크 연결을 확인해주세요.';
+          break;
+        default:
+          errorMessage = '로그인이 잘못되었습니다. 확인해주세요.';
+      }
+      
+      throw new Error(errorMessage);
     }
   };
 
@@ -70,7 +91,28 @@ export const AuthProvider = ({ children }) => {
       return userCredential.user;
     } catch (error) {
       console.error('회원가입 실패:', error);
-      throw error;
+      
+      // 사용자 친화적인 오류 메시지로 변환
+      let errorMessage = '회원가입에 실패했습니다.';
+      
+      switch (error.code) {
+        case 'auth/email-already-in-use':
+          errorMessage = '이미 사용 중인 이메일입니다.';
+          break;
+        case 'auth/invalid-email':
+          errorMessage = '올바른 이메일 형식이 아닙니다.';
+          break;
+        case 'auth/weak-password':
+          errorMessage = '비밀번호가 너무 약합니다. 6자 이상 입력해주세요.';
+          break;
+        case 'auth/network-request-failed':
+          errorMessage = '네트워크 연결을 확인해주세요.';
+          break;
+        default:
+          errorMessage = '회원가입에 실패했습니다.';
+      }
+      
+      throw new Error(errorMessage);
     }
   };
 

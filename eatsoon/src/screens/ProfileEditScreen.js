@@ -134,7 +134,7 @@ export default function ProfileEditScreen() {
       }
 
       Alert.alert('성공', '프로필이 업데이트되었습니다.');
-      navigation.navigate('Main', { screen: 'Profile' });
+      navigation.goBack();
     } catch (error) {
       console.error('프로필 업데이트 실패:', error);
       
@@ -159,7 +159,7 @@ export default function ProfileEditScreen() {
       '변경사항이 저장되지 않습니다. 정말 취소하시겠습니까?',
       [
         { text: '계속 편집', style: 'cancel' },
-        { text: '취소', onPress: () => navigation.navigate('Main', { screen: 'Profile' }) }
+        { text: '취소', onPress: () => navigation.goBack() }
       ]
     );
   };
@@ -170,7 +170,7 @@ export default function ProfileEditScreen() {
       <View style={styles.header}>
         <TouchableOpacity 
           style={styles.backButton}
-          onPress={() => navigation.navigate('Main', { screen: 'Profile' })}
+          onPress={() => navigation.goBack()}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
           <Ionicons name="arrow-back" size={28} color={Colors.textPrimary} />

@@ -313,7 +313,7 @@ export default function ProfileScreen() {
         
         <Card style={styles.menuCard}>
           <ListItem
-            onPress={() => navigation.navigate('Settings', { screen: 'ProfileEdit' })}
+            onPress={() => navigation.navigate('ProfileEdit')}
             icon="person"
             title="프로필 편집"
             subtitle="이름과 이메일을 변경하세요"
@@ -321,7 +321,7 @@ export default function ProfileScreen() {
           />
           <Divider />
           <ListItem
-            onPress={() => navigation.navigate('Settings', { screen: 'Privacy' })}
+            onPress={() => navigation.navigate('Privacy')}
             icon="shield-checkmark"
             title="개인정보 보호"
             subtitle="데이터 사용 현황을 확인하세요"
@@ -342,7 +342,7 @@ export default function ProfileScreen() {
           />
           <Divider />
           <ListItem
-            onPress={() => navigation.navigate('Settings', { screen: 'Help' })}
+            onPress={() => navigation.navigate('Help')}
             icon="help-circle"
             title="도움말"
             subtitle="사용 방법을 확인하세요"
